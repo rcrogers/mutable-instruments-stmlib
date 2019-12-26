@@ -109,6 +109,10 @@ struct FourCC {
   static const uint32_t value = (((((d << 8) | c) << 8) | b) << 8) | a;
 };
 
+inline uint8_t modulo(int8_t a, int8_t b) {
+  return (b + (a % b)) % b;
+}
+
 }  // namespace stmlib
 
 #endif   // STMLIB_STMLIB_H_
