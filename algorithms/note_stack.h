@@ -73,7 +73,7 @@ class NoteStack {
   
   void Init() { Clear(); }
 
-  void NoteOn(uint8_t note, uint8_t velocity) {
+  uint8_t NoteOn(uint8_t note, uint8_t velocity) {
     // Remove the note from the list first (in case it is already here).
     NoteOff(note);
     // In case of saturation, remove the least recently played note from the
@@ -95,6 +95,7 @@ class NoteStack {
         break;
       }
     }
+    uint8_t target_index = free_slot;
     pool_[free_slot].next_ptr = root_ptr_;
     pool_[free_slot].note = note;
     pool_[free_slot].velocity = velocity;
@@ -114,9 +115,10 @@ class NoteStack {
       sorted_ptr_[size_] = free_slot;
     }
     ++size_;
+    return target_index;
   }
   
-  void NoteOff(uint8_t note) {
+  uint8_t NoteOff(uint8_t note) {
     uint8_t current = root_ptr_;
     uint8_t previous = 0;
     while (current) {
@@ -145,6 +147,7 @@ class NoteStack {
       pool_[current].velocity = 0;
       --size_;
     }
+    return current;
   }
   
   void Clear() {
