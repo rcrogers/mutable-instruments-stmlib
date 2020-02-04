@@ -163,6 +163,7 @@ class NoteStack {
   uint8_t size() const { return size_; }
   uint8_t max_size() const { return capacity; }
   const NoteEntry& most_recent_note() const { return pool_[root_ptr_]; }
+  const uint8_t most_recent_note_index() const { return root_ptr_; }
   const NoteEntry& least_recent_note() const {
     uint8_t current = root_ptr_;
     while (current && pool_[current].next_ptr) {
