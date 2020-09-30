@@ -38,6 +38,8 @@ else
 OPENOCD_INTERFACE_SCRIPT ?= interface/$(PGM_INTERFACE).cfg
 endif
 
+OPENOCD_SCRIPT_PATH ?= /opt/local/share/openocd/scripts/
+
 PGM_SERIAL_PORT ?= /dev/ftdi-usbserial
 PGM_SERIAL_BAUD_RATE ?= 115200
 PGM_SERIAL_VERIFY ?= -v
@@ -141,7 +143,7 @@ LINKER_SCRIPT = stmlib/linker_scripts/stm32h7xx_flash$(LD_SUFFIX).ld
 FW_STDDRIVER_DIR = $(STM32_PATH)/STM32H7xx_HAL_Driver
 ARCHFLAGS = -mcpu=cortex-m7 -mthumb -mfloat-abi=hard -mfpu=fpv5-d16 -mthumb-interwork -funroll-loops
 ARCH_DEFINE = GCC_ARMCM7
-OPENOCD_TARGET = h7x
+OPENOCD_TARGET = h7x_dual_bank
 
 else
 
@@ -199,7 +201,7 @@ INCFLAGS = \
 			-D$(SYSCLOCK)=$(F_CPU)
 
 CCFLAGS = \
-			-g -O2 -Wall -Werror -Wno-unused-local-typedefs \
+			-g -O2 -Wall -Werror -Wno-unused-local-typedefs -Wno-strict-aliasing \
 			-fasm \
 			-finline \
 			-finline-functions-called-once \
@@ -375,8 +377,8 @@ $(COMBO_BIN): $(TARGET_HEX) $(BOOTLOADER_HEX)
 # Firmware flashing
 # ------------------------------------------------------------------------------
 
-BASE_JTAG_CMD = openocd \
-			-s /opt/local/share/openocd/scripts \
+BASE_JTAG_CMD = $(OPENOCD_BIN_PATH)openocd \
+			-s $(OPENOCD_SCRIPT_PATH) \
 			-f $(OPENOCD_INTERFACE_SCRIPT) \
 			-f $(OPENOCD_TARGET_SCRIPT) \
 			-c "init" -c "halt" -c "sleep 200"
@@ -435,7 +437,8 @@ image_jtag_1M:
 		$(POSTLUDE)
 
 debug_server: $(TARGET_BIN)
-	openocd \
+	$(OPENOCD_BIN_PATH)openocd \
+		-s $(OPENOCD_SCRIPT_PATH) \
 		-f $(OPENOCD_INTERFACE_SCRIPT) \
 		-f $(OPENOCD_TARGET_SCRIPT) \
 		-c "init;reset;halt" \
@@ -445,7 +448,6 @@ debug_client:
 
 erase_jtag:
 	$(BASE_JTAG_CMD) \
-        -c "stm32f4x unlock 0" \
 				-f $(OPENOCD_SCRIPTS_PATH)erase_$(FAMILY).cfg \
 				$(POSTLUDE)
 
@@ -499,7 +501,7 @@ upload_jtag_erase_first_sector: $(TARGET_BIN)
 				-c "verify_image $(TARGET_BIN) 0x08000000" \
 				$(POSTLUDE)
 
-upload_combo_jtag_erase_first: $(COMBO_BIN)
+upload_combo_jtag_erase_first_sector: $(COMBO_BIN)
 	$(BASE_JTAG_CMD) \
 				-c "flash erase_address 0x08000000 0x20000" \
 				-c "reset halt" \
