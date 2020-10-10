@@ -46,7 +46,16 @@ using namespace stmlib_midi;
 const int32_t kOctave = 12 << 7;
 const int32_t kMaxNote = 120 << 7;
 
-void Voice::Init(bool reset_calibration) {
+void CVOutput::Init(bool reset_calibration) {
+  if (reset_calibration) {
+    for (uint8_t i = 0; i < kNumOctaves; ++i) {
+      calibrated_dac_code_[i] = 54586 - 5133 * i;
+    }
+  }
+  dirty_ = false;
+}
+
+void Voice::Init() {
   note_ = -1;
   note_source_ = note_target_ = note_portamento_ = 60 << 7;
   gate_ = false;
@@ -65,25 +74,20 @@ void Voice::Init(bool reset_calibration) {
   
   trigger_duration_ = 2;
   
-  if (reset_calibration) {
-    for (uint8_t i = 0; i < kNumOctaves; ++i) {
-      calibrated_dac_code_[i] = 54586 - 5133 * i;
-    }
-  }
-  dirty_ = false;
   oscillator_.Init(
-    calibrated_dac_code_[3] - calibrated_dac_code_[8],
-    calibrated_dac_code_[3]);
+    cv_output_.calibration_dac_code(3) - cv_output_.calibration_dac_code(8),
+    cv_output_.calibration_dac_code(3)
+  );
 }
 
-void Voice::Calibrate(uint16_t* calibrated_dac_code) {
+void CVOutput::Calibrate(uint16_t* calibrated_dac_code) {
   std::copy(
       &calibrated_dac_code[0],
       &calibrated_dac_code[kNumOctaves],
       &calibrated_dac_code_[0]);
 }
 
-inline uint16_t Voice::NoteToDacCode(int32_t note) const {
+inline uint16_t CVOutput::NoteToDacCode(int32_t note) const {
   if (note <= 0) {
     note = 0;
   }
@@ -180,7 +184,7 @@ void Voice::Refresh() {
     }
   }
   if (note != note_ || dirty_) {
-    note_dac_code_ = NoteToDacCode(note);
+    note_dac_code_ = cv_output_.NoteToDacCode(note);
     note_ = note;
     dirty_ = false;
   }
@@ -244,7 +248,7 @@ void Voice::ControlChange(uint8_t controller, uint8_t value) {
 
 uint16_t Voice::trigger_dac_code() const {
   if (trigger_phase_ <= trigger_phase_increment_) {
-    return calibrated_dac_code_[3]; // 0V.
+    return cv_output_.volts_dac_code(0);
   } else {
     int32_t velocity_coefficient = trigger_scale_ ? mod_velocity_ << 8 : 32768;
     int32_t value = 0;
@@ -264,8 +268,8 @@ uint16_t Voice::trigger_dac_code() const {
         break;
     }
     value = value * velocity_coefficient >> 15;
-    int32_t max = calibrated_dac_code_[8];
-    int32_t min = calibrated_dac_code_[3];
+    int32_t max = cv_output_.volts_dac_code(5);
+    int32_t min = cv_output_.volts_dac_code(0);
     return min + ((max - min) * value >> 15);
   }
 }

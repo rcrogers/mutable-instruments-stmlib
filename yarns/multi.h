@@ -482,6 +482,7 @@ class Multi {
   
   Part part_[kNumParts];
   Voice voice_[kNumVoices];
+  CVOutput cv_output_[kNumVoices];
 
   LayoutConfigurator layout_configurator_;
   

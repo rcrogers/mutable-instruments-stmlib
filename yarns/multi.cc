@@ -376,7 +376,7 @@ void Multi::GetCvGate(uint16_t* cv, bool* gate) {
     case LAYOUT_THREE_ONE:
     case LAYOUT_TWO_TWO:
       cv[0] = voice_[0].note_dac_code();
-      cv[1] = voice_[1].note_dac_code();
+      cv[1] = voice_[2].velocity_dac_code(); // voice_[1].note_dac_code();
       cv[2] = voice_[2].note_dac_code();
       cv[3] = voice_[3].note_dac_code();
       gate[0] = voice_[0].gate();
