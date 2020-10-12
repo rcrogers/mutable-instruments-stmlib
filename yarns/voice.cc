@@ -55,7 +55,7 @@ void CVOutput::Init(bool reset_calibration) {
   dirty_ = false;
 }
 
-void Voice::Init() {
+void Voice::Init(CVOutput& cvo) {
   note_ = -1;
   note_source_ = note_target_ = note_portamento_ = 60 << 7;
   gate_ = false;
@@ -74,6 +74,7 @@ void Voice::Init() {
   
   trigger_duration_ = 2;
   
+  cv_output_ = cvo;
   oscillator_.Init(
     cv_output_.calibration_dac_code(3) - cv_output_.calibration_dac_code(8),
     cv_output_.calibration_dac_code(3)

@@ -55,7 +55,10 @@ void Multi::Init(bool reset_calibration) {
     part_[i].set_custom_pitch_table(settings_.custom_pitch_table);
   }
   for (uint8_t i = 0; i < kNumVoices; ++i) {
-    voice_[i].Init(reset_calibration);
+    cv_output_[i].Init(reset_calibration);
+  }
+  for (uint8_t i = 0; i < kNumVoices; ++i) {
+    voice_[i].Init();
   }
   running_ = false;
   latched_ = false;

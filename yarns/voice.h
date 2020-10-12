@@ -157,7 +157,7 @@ class Voice {
   // Clock-synced LFO.
   SyncedLFO synced_lfo_;
 
-  void Init();
+  void Init(CVOutput& cvo);
   void ResetAllControllers();
 
   void Refresh();
