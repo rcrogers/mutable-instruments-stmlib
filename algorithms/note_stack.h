@@ -185,7 +185,7 @@ class NoteStack {
   const NoteEntry& note(uint8_t index) const { return pool_[index]; }
   NoteEntry* mutable_note(uint8_t index) { return &pool_[index]; }
   const NoteEntry& dummy() const { return pool_[0]; }
-  const NoteEntry& note_by_priority(NoteStackFlags priority, uint8_t index = 0) {
+  const NoteEntry& note_by_priority(NoteStackFlags priority, uint8_t index = 0) const {
     if (size() <= index) {
       return dummy();
     }
