@@ -113,6 +113,13 @@ inline uint8_t modulo(int8_t a, int8_t b) {
   return (b + (a % b)) % b;
 }
 
+inline uint8_t modulate_7bit(uint8_t init, int8_t scale, uint8_t mod) {
+  int16_t result = init;
+  result += (mod * scale) >> 6;
+  CONSTRAIN(result, 0, 127);
+  return result;
+}
+
 }  // namespace stmlib
 
 #endif   // STMLIB_STMLIB_H_
