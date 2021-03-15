@@ -120,6 +120,18 @@ inline uint8_t modulate_7bit(uint8_t init, int8_t scale, uint8_t mod) {
   return result;
 }
 
+inline int32_t slew(int32_t current, int32_t target, uint8_t smoothing = 5) {
+  int32_t delta = target - current;
+  if (delta) {
+    int32_t increment = delta >> smoothing;
+    if (!increment) {
+      increment = delta > 0 ? 1 : -1;
+    }
+    current += increment;
+  }
+  return current;
+}
+
 }  // namespace stmlib
 
 #endif   // STMLIB_STMLIB_H_
