@@ -59,7 +59,7 @@ class VoiceAllocator {
     return NoteOn(note, VOICE_STEALING_MODE_LRU);
   }
 
-  uint8_t NoteOn(uint8_t note, VoiceStealingMode voice_stealing_mode) {
+  uint8_t NoteOn(uint8_t note, VoiceStealingMode voice_stealing_mode, bool touch = false) {
     if (size_ == 0) {
       return NOT_ALLOCATED;
     }

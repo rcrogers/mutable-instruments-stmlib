@@ -65,7 +65,7 @@ class ResourceEntry(object):
     prefix = self._table.prefix
     key = self._key.upper()
     index = self._index
-    if self._table.python_type == str:
+    if type(self._value) == str:
       comment = '  // %s' % self._value
       size = None
     else:
@@ -91,9 +91,19 @@ class ResourceEntry(object):
             for j in xrange(i, min(n_elements, i + 4))))
         f.write(',\n');
       f.write('};\n')
+    elif type(self._value) == str:
+      f.write('%s = "%s";\n' %(declaration, self._value))
     elif self._table.python_type == str:
       value = self._value
-      f.write('static %(declaration)s = "%(value)s";\n' % locals())
+      f.write('%(declaration)s = {\n' % locals())
+      n_elements = len(self._value)
+      for i in xrange(0, n_elements, 4):
+        f.write('  ');
+        f.write(', '.join(
+            '"{}"'.format(self._value[j]) \
+            for j in xrange(i, min(n_elements, i + 4))))
+        f.write(',\n');
+      f.write('};\n')
     else:
       f.write('%(declaration)s = {\n' % locals())
       n_elements = len(self._value)
@@ -120,7 +130,7 @@ class ResourceTable(object):
     keys = set()
     values = {}
     for index, entry in enumerate(resource_tuple[0]):
-      if self.python_type == str:
+      if type(entry) == str:
         # There is no name/value for string entries
         key, value = entry, entry.strip()
       else:
@@ -157,7 +167,7 @@ class ResourceTable(object):
     self._MakeIdentifier = lambda s:s.translate(table, bad_chars)
   
   def DeclareEntries(self, f):
-    if self.python_type != str:
+    if type(self.entries[0]) != str:
       for entry in self.entries:
         entry.Declare(f)
 
@@ -188,7 +198,7 @@ class ResourceLibrary(object):
     # Create resource table objects for all resources.
     for resource_tuple in root.resources:
       # Split a multiline string into a list of strings
-      if resource_tuple[-2] == str:
+      if type(resource_tuple[0]) == str:
         resource_tuple = list(resource_tuple)
         resource_tuple[0] = [x for x in resource_tuple[0].split('\n') if x]
         resource_tuple = tuple(resource_tuple)
