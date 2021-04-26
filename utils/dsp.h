@@ -84,11 +84,11 @@ inline int16_t Crossfade115(
   __attribute__((always_inline));
 
 inline int16_t Mix(int16_t a, int16_t b, uint16_t balance) {
-  return (a * (65535 - balance) + b * balance) >> 16;
+  return a + ((b - a) * static_cast<int32_t>(balance) >> 16);
 }
 
 inline uint16_t Mix(uint16_t a, uint16_t b, uint16_t balance) {
-  return (a * (65535 - balance) + b * balance) >> 16;
+  return a + ((b - a) * static_cast<int32_t>(balance) >> 16);
 }
 
 inline int16_t Interpolate824(const int16_t* table, uint32_t phase) {
