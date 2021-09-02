@@ -27,6 +27,7 @@
 
 #include <inttypes.h>
 #include <stddef.h>
+#include <algorithm>
 
 #ifndef NULL
 #define NULL 0
@@ -113,10 +114,10 @@ inline uint8_t modulo(int8_t a, int8_t b) {
   return (b + (a % b)) % b;
 }
 
-inline uint8_t modulate_7bit(uint8_t init, int8_t scale, uint8_t mod) {
-  int16_t result = init;
-  result += (mod * scale) >> 6;
-  CONSTRAIN(result, 0, 127);
+inline uint16_t modulate_7_13(uint8_t init, int8_t scale, uint8_t mod) {
+  int16_t result = init << 6;
+  result += mod * scale;
+  CONSTRAIN(result, 0, 8191);
   return result;
 }
 
@@ -130,6 +131,12 @@ inline int32_t slew(int32_t current, int32_t target, uint8_t smoothing = 5) {
     current += increment;
   }
   return current;
+}
+
+inline int32_t exponentialize(int32_t linear_slope, int8_t shift) {
+  return shift >= 0
+    ? linear_slope << std::min(static_cast<int>(shift), __builtin_clz(linear_slope))
+    : linear_slope >> -shift;
 }
 
 }  // namespace stmlib
