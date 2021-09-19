@@ -133,12 +133,11 @@ inline int32_t slew(int32_t current, int32_t target, uint8_t smoothing = 5) {
   return current;
 }
 
-__attribute__ ((__always_inline__))
-inline int32_t shift_slope(int32_t linear_slope, int8_t shift) {
-  if (linear_slope == 0) return 0;
+inline int32_t shift_by_signed(int32_t n, int8_t shift) {
+  if (n == 0) return 0;
   return shift >= 0
-    ? linear_slope << std::min(static_cast<int>(shift), __builtin_clz(abs(linear_slope)))
-    : linear_slope >> static_cast<uint8_t>(-shift);
+    ? n << std::min(static_cast<int>(shift), __builtin_clz(abs(n)))
+    : n >> static_cast<uint8_t>(-shift);
 }
 
 }  // namespace stmlib
