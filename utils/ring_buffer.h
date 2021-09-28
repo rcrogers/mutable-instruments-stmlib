@@ -64,6 +64,10 @@ class RingBuffer {
     write_ptr_ = (w + 1) % size;
   }
 
+  inline T ImmediatePeek() const {
+    return buffer_[read_ptr_];
+  }
+
   inline T Read() {
     while (!readable());
     return ImmediateRead();
