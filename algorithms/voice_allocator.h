@@ -39,12 +39,6 @@ enum VoiceAllocatorFlags {
   ACTIVE_NOTE = 0x80
 };
 
-enum VoiceStealingMode {
-  VOICE_STEALING_MODE_LRU,
-  VOICE_STEALING_MODE_MRU,
-  VOICE_STEALING_MODE_NONE,
-};
-
 template<uint8_t capacity>
 class VoiceAllocator {
  public: 
@@ -54,17 +48,13 @@ class VoiceAllocator {
     size_ = 0;
     Clear();
   }
-  
-  uint8_t NoteOn(uint8_t note) {
-    return NoteOn(note, VOICE_STEALING_MODE_LRU);
-  }
 
-  uint8_t NoteOn(uint8_t note, VoiceStealingMode voice_stealing_mode, bool touch = false) {
+  uint8_t NoteOn(uint8_t note, uint8_t stealable_voice_index) {
     if (size_ == 0) {
       return NOT_ALLOCATED;
     }
 
-    // First, check if there is a voice currently playing this note. In this
+    // First, check if there is a voice whose latest note was this note. In this
     // case, this voice will be responsible for retriggering this note.
     // Hint: if you're more into string instruments than keyboard instruments,
     // you can safely comment those lines.
@@ -78,19 +68,11 @@ class VoiceAllocator {
         }
       }
     }
-    // If all voices are active, use the least or most recently played note
-    // (voice-stealing).
-    if (voice == NOT_ALLOCATED) {
-      if (voice_stealing_mode == VOICE_STEALING_MODE_NONE) { return voice; }
-      for (uint8_t i = 0; i < capacity; ++i) {
-        uint8_t candidate = voice_stealing_mode == VOICE_STEALING_MODE_LRU
-            ? i
-            : capacity - 1 - i;
-        if (lru_[candidate] < size_) {
-          voice = lru_[candidate];
-        }
-      }
-    }
+
+    // If all voices are active, try to resort to stealing
+    if (voice == NOT_ALLOCATED) voice = stealable_voice_index;
+    if (voice == NOT_ALLOCATED) return voice; // Cannot steal; NOOP
+
     pool_[voice] = note | ACTIVE_NOTE;
     Touch(voice);
     return voice;
@@ -99,12 +81,13 @@ class VoiceAllocator {
   uint8_t NoteOff(uint8_t note) {
     uint8_t voice = Find(note);
     if (voice != NOT_ALLOCATED) {
-      pool_[voice] &= 0x7f;
+      pool_[voice] &= 0x7f; // ACTIVE_NOTE = false
       Touch(voice);
     }
     return voice;
   }
 
+  // Find the voice whose latest note was this note
   uint8_t Find(uint8_t note) const {
     for (uint8_t i = 0; i < size_; ++i) {
       if ((pool_[i] & 0x7f) == note) {
@@ -123,7 +106,7 @@ class VoiceAllocator {
 
   inline void ClearNotes() {
     for (uint8_t i = 0; i < capacity; ++i) {
-      pool_[i] &= 0x7f;
+      pool_[i] &= 0x7f; // ACTIVE_NOTE = false
     }
   }
 
@@ -146,6 +129,7 @@ class VoiceAllocator {
     lru_[0] = voice;
   }
    
+  // Maps voice index to its most recent note (even after NoteOff!)
   uint8_t pool_[capacity];
   // Holds the indices of the voices sorted by most recent usage.
   uint8_t lru_[capacity];
