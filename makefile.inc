@@ -212,6 +212,7 @@ INCFLAGS = \
 
 CCFLAGS = \
 			-g -O2 -Wall -Werror -Wno-unused-local-typedefs -Wno-strict-aliasing \
+			-Wuninitialized \
 			-fasm \
 			-finline \
 			-finline-functions-called-once \

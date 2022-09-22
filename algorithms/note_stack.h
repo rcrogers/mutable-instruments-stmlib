@@ -160,6 +160,7 @@ class NoteStack {
     }
   }
 
+  // Returns a 1-based index
   uint8_t Find(uint8_t note) const {
     uint8_t current = root_ptr_;
     while (current) {
@@ -171,17 +172,40 @@ class NoteStack {
     return current;
   }
 
+  // 0-based index, newest first
+  uint8_t played_index_for_note(uint8_t note) const {
+    uint8_t index = 0;
+    uint8_t current = root_ptr_;
+    while (current) {
+      if (pool_[current].note == note) break;
+      current = pool_[current].next_ptr;
+      index++;
+    }
+    return index;
+  }
+  // 0-based index, lowest first
+  uint8_t sorted_index_for_note(uint8_t note) const {
+    for (uint8_t i = 0; i < size_; i++) {
+      if (pool_[sorted_ptr_[i]].note == note) return i;
+    }
+    return 0;
+  }
+  // 0-based index
+  uint8_t priority_for_note(NoteStackFlags priority, uint8_t note) const {
+    switch (priority) {
+      case NOTE_STACK_PRIORITY_LAST: return played_index_for_note(note);
+      case NOTE_STACK_PRIORITY_LOW: return sorted_index_for_note(note);
+      case NOTE_STACK_PRIORITY_HIGH: return size() - 1 - sorted_index_for_note(note);
+      case NOTE_STACK_PRIORITY_FIRST: return size() - 1 - played_index_for_note(note);
+      default: return 0;
+    }
+  }
+
   uint8_t size() const { return size_; }
   uint8_t max_size() const { return capacity; }
+
   const NoteEntry& most_recent_note() const { return pool_[root_ptr_]; }
   const uint8_t most_recent_note_index() const { return root_ptr_; }
-  const NoteEntry& least_recent_note() const {
-    uint8_t current = root_ptr_;
-    while (current && pool_[current].next_ptr) {
-      current = pool_[current].next_ptr;
-    }
-    return pool_[current];
-  }
   const NoteEntry& played_note(uint8_t index) const {
     uint8_t current = root_ptr_;
     index = size_ - index - 1;
@@ -193,10 +217,11 @@ class NoteStack {
   const NoteEntry& sorted_note(uint8_t index) const {
     return pool_[sorted_ptr_[index]];
   }
+
   const NoteEntry& note(uint8_t index) const { return pool_[index]; }
   NoteEntry* mutable_note(uint8_t index) { return &pool_[index]; }
   const NoteEntry& dummy() const { return pool_[0]; }
-  const NoteEntry& note_by_priority(NoteStackFlags priority, uint8_t index = 0) const {
+  const NoteEntry& note_by_priority(NoteStackFlags priority, uint8_t index) const {
     if (size() <= index) {
       return dummy();
     }
