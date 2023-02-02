@@ -46,11 +46,11 @@ class RingBuffer {
   inline size_t capacity() const { return size; }
   
   inline size_t writable() const {
-    return (size + read_ptr_ - write_ptr_ - 1) % size;
+    return (read_ptr_ - write_ptr_ - 1) % size;
   }
   
   inline size_t readable() const {
-    return (size + write_ptr_ - read_ptr_) % size;
+    return (write_ptr_ - read_ptr_) % size;
   }
   
   inline void Write(T v) {
