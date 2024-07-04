@@ -28,6 +28,7 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <algorithm>
+#include <limits>
 
 #ifndef NULL
 #define NULL 0
@@ -112,6 +113,18 @@ struct FourCC {
 
 inline uint8_t modulo(int8_t a, int8_t b) {
   return (b + (a % b)) % b;
+}
+
+// Saturating add for any integer types
+template<typename SumType, typename IncType>
+inline SumType SaturatingIncrement(SumType num, IncType inc) {
+  if (inc > 0 && num > std::numeric_limits<SumType>::max() - inc) {
+    return std::numeric_limits<SumType>::max();
+  } else if (inc < 0 && num < std::numeric_limits<SumType>::min() - inc) {
+    return std::numeric_limits<SumType>::min();
+  } else {
+    return num + inc;
+  }
 }
 
 inline uint16_t modulate_7_13(uint8_t init, int8_t scale, uint8_t mod) {
