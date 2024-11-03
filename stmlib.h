@@ -127,12 +127,6 @@ inline SumType SaturatingIncrement(SumType num, IncType inc) {
   }
 }
 
-inline uint16_t modulate_7_13(uint8_t init, int8_t scale, uint8_t mod) {
-  int16_t result = init << 6;
-  result += mod * scale;
-  CONSTRAIN(result, 0, 8191);
-  return result;
-}
 
 inline uint16_t modulate_7_13(uint8_t init, int8_t scale, uint8_t mod) {
   int16_t result = init << 6;
