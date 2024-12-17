@@ -27,6 +27,8 @@
 
 #include <inttypes.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <algorithm>
 #include <limits>
 
 #ifndef NULL
@@ -46,6 +48,13 @@
     var = (max); \
   }
 
+// Always rounds toward -inf, for both positive and negative dividends
+#define DIV_FLOOR(dividend, divisor) \
+  ( \
+    ((dividend) % (divisor)) \
+      ? (((dividend) / (divisor)) - (((dividend) < 0) ^ ((divisor) < 0))) \
+      : ((dividend) / (divisor)) \
+  )
 
 #define JOIN(lhs, rhs)    JOIN_1(lhs, rhs)
 #define JOIN_1(lhs, rhs)  JOIN_2(lhs, rhs)
@@ -110,8 +119,10 @@ struct FourCC {
   static const uint32_t value = (((((d << 8) | c) << 8) | b) << 8) | a;
 };
 
-inline uint8_t modulo(int8_t a, int8_t b) {
-  return (b + (a % b)) % b;
+// Returns the positive remainder
+template<typename Dividend, typename Divisor>
+inline Divisor modulo(Dividend dividend, Divisor divisor) {
+  return (divisor + (dividend % divisor)) % divisor;
 }
 
 // Saturating add for any integer types
