@@ -179,18 +179,21 @@ class MidiStreamParser {
           case 0x0:
             Handler::SysExByte(data_[0]);
             break;
-          case 0x1:
-          case 0x2:
-          case 0x3:
-          case 0x4:
-          case 0x5:
-          case 0x6:
+          case 0x1: // MIDI Time Code quarter frame
+            break;
+          case 0x2: // Song Position Pointer
+            Handler::SongPosition((static_cast<uint16_t>(data_[1]) << 7) + data_[0]);
+            break;
+          case 0x3: // Song select
+          case 0x4: // Undefined
+          case 0x5: // Undefined
+          case 0x6: // Tune request
             // TODO(pichenettes): implement this if it makes sense.
             break;
           case 0x8:
             Handler::Clock();
             break;
-          case 0x9:
+          case 0x9: // Undefined
             break;
           case 0xa:
             Handler::Start();
