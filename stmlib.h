@@ -128,13 +128,13 @@ inline Divisor modulo(Dividend dividend, Divisor divisor) {
 // Saturating add for any integer types
 template<typename SumType, typename IncType>
 inline SumType SaturatingIncrement(SumType num, IncType inc) {
-  if (inc > 0 && num > std::numeric_limits<SumType>::max() - inc) {
-    return std::numeric_limits<SumType>::max();
-  } else if (inc < 0 && num < std::numeric_limits<SumType>::min() - inc) {
-    return std::numeric_limits<SumType>::min();
-  } else {
-    return num + inc;
+  SumType result = num + inc;
+  if (inc > 0) { // Check for overflow
+    result = (result < num) ? std::numeric_limits<SumType>::max() : result;
+  } else { // Check for underflow
+    result = (result > num) ? std::numeric_limits<SumType>::min() : result;
   }
+  return result;
 }
 
 
