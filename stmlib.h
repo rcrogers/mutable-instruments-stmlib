@@ -145,7 +145,7 @@ inline uint16_t modulate_7_13(uint8_t init, int8_t scale, uint8_t mod) {
   return result;
 }
 
-inline int32_t slew(int32_t current, int32_t target, uint8_t smoothing = 5) {
+inline int32_t slew(uint16_t current, uint16_t target, uint8_t smoothing = 5) {
   int32_t delta = target - current;
   if (delta) {
     int32_t increment = delta >> smoothing;
