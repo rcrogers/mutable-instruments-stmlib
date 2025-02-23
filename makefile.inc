@@ -168,7 +168,7 @@ endif
 STARTUP_OBJ   = $(BUILD_DIR)startup_stm32f10x_$(DENSITY).o
 LINKER_SCRIPT = stmlib/linker_scripts/stm32f10x_flash_$(DENSITY)$(LD_SUFFIX).ld
 FW_STDDRIVER_DIR = $(STM32_PATH)/STM32F10x_StdPeriph_Driver
-ARCHFLAGS = -mcpu=cortex-m3 -mthumb -fno-unroll-loops
+ARCHFLAGS = -mcpu=cortex-m3 -mthumb # -fno-unroll-loops
 ARCH_DEFINE = GCC_ARMCM3
 OPENOCD_TARGET = f1x
 
@@ -210,19 +210,46 @@ INCFLAGS = \
 			-DUSE_STDPERIPH_DRIVER \
 			-D$(SYSCLOCK)=$(F_CPU)
 
-CCFLAGS = \
-			-g -O2 -Wall -Werror -Wno-unused-local-typedefs -Wno-strict-aliasing \
-			-Wuninitialized \
-			-fasm \
-			-finline \
-			-finline-functions-called-once \
-			-fdata-sections \
-			-ffunction-sections \
-			-fshort-enums \
-			-fno-move-loop-invariants \
-			-fno-unwind-tables \
-			$(INCFLAGS) \
-			$(ARCHFLAGS)
+CCFLAGS =
+# CCFLAGS += -g
+CCFLAGS += -Wall
+CCFLAGS += -Werror
+CCFLAGS += -Wno-unused-local-typedefs
+CCFLAGS += -Wno-strict-aliasing
+CCFLAGS += -Wuninitialized
+
+CCFLAGS += -O2
+# CCFLAGS += -Os
+
+# O3 flags that can be used in this gcc version
+CCFLAGS += -fgcse-after-reload
+CCFLAGS += -fipa-cp-clone
+CCFLAGS += -floop-interchange
+# CCFLAGS += -fpeel-loops # When added, +13384 bytes
+CCFLAGS += -fpredictive-commoning
+CCFLAGS += -ftree-loop-distribution
+CCFLAGS += -ftree-partial-pre
+CCFLAGS += -funswitch-loops
+
+# O3 flags that cannot be used in this gcc version
+# CCFLAGS += -floop-unroll-and-jam
+# CCFLAGS += -fsplit-loops
+# CCFLAGS += -fsplit-paths
+# CCFLAGS += -fvect-cost-model=dynamic
+# CCFLAGS += -fversion-loops-for-strides
+
+CCFLAGS += -fasm
+CCFLAGS += -finline
+CCFLAGS += -finline-functions-called-once
+
+# CCFLAGS += -fdata-sections # When omitted, +616 bytes
+CCFLAGS += -ffunction-sections # When omitted, +8204 bytes
+
+CCFLAGS += -fshort-enums
+# CCFLAGS += -fno-move-loop-invariants
+# CCFLAGS += -fno-unwind-tables
+CCFLAGS += $(INCFLAGS)
+CCFLAGS += $(ARCHFLAGS)
 
 CPPFLAGS = -fno-exceptions -fno-rtti
 
