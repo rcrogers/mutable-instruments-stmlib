@@ -75,6 +75,9 @@ OPENOCD_SCRIPTS_PATH = stmlib/programming/jtag/
 # Files and directories for the user code
 # ------------------------------------------------------------------------------
 
+PACKAGES += $(CMSIS_DSP_PATH)/Source
+PACKAGES += $(CMSIS_CORE_PATH)/Source
+
 VPATH          = $(PACKAGES)
 
 CC_FILES       = $(notdir $(wildcard $(patsubst %,%/*.cc,$(PACKAGES))))
@@ -165,6 +168,7 @@ else
 MODEL_DEFINE = STM32F10X_CL -DSTM32F10X
 endif
 
+MODEL_DEFINE += -DARM_MATH_CM3
 STARTUP_OBJ   = $(BUILD_DIR)startup_stm32f10x_$(DENSITY).o
 LINKER_SCRIPT = stmlib/linker_scripts/stm32f10x_flash_$(DENSITY)$(LD_SUFFIX).ld
 FW_STDDRIVER_DIR = $(STM32_PATH)/STM32F10x_StdPeriph_Driver
@@ -248,6 +252,74 @@ CCFLAGS += -ffunction-sections # When omitted, +8204 bytes
 CCFLAGS += -fshort-enums
 # CCFLAGS += -fno-move-loop-invariants
 # CCFLAGS += -fno-unwind-tables
+
+# Compilation flags (here for Cortex-M55)
+CMSIS_CCFLAGS = CCFLAGS
+CMSIS_CCFLAGS += -mcpu=cortex-m3 \
+ -Wsign-compare \
+ -Wdouble-promotion \
+ -Ofast -ffast-math \
+ -DNDEBUG \
+ -Wall -Wextra  -Werror \
+ -fshort-enums -fshort-wchar \
+ -mfloat-abi=hard
+ # --target=arm-arm-none-eabi
+
+# Path to CMSIS_5
+CMSIS_5 := CMSIS_5
+
+# Path to CMSIS_DSP
+CMSIS_DSP := CMSIS-DSP
+
+# Path to CMSIS Core includes for Cortex-M
+# For low end Cortex-A, use Core_A
+# For high end Cortex-A (aarch64), don't use CMSIS 
+# Core Includes (Refer to the CMSIS-DSP README to 
+# know how to build in that case)
+CMSIS_CORE_INCLUDES := $(CMSIS_5)/CMSIS/Core/Include 
+
+# Sources
+DSP_SRCS := $(CMSIS_DSP)/Source/BasicMathFunctions/BasicMathFunctions.c \
+ $(CMSIS_DSP)/Source/CommonTables/CommonTables.c \
+ $(CMSIS_DSP)/Source/InterpolationFunctions/InterpolationFunctions.c \
+ $(CMSIS_DSP)/Source/BayesFunctions/BayesFunctions.c \
+ $(CMSIS_DSP)/Source/MatrixFunctions/MatrixFunctions.c \
+ $(CMSIS_DSP)/Source/ComplexMathFunctions/ComplexMathFunctions.c \
+ $(CMSIS_DSP)/Source/QuaternionMathFunctions/QuaternionMathFunctions.c \
+ $(CMSIS_DSP)/Source/ControllerFunctions/ControllerFunctions.c \
+ $(CMSIS_DSP)/Source/SVMFunctions/SVMFunctions.c \
+ $(CMSIS_DSP)/Source/DistanceFunctions/DistanceFunctions.c \
+ $(CMSIS_DSP)/Source/StatisticsFunctions/StatisticsFunctions.c \
+ $(CMSIS_DSP)/Source/FastMathFunctions/FastMathFunctions.c \
+ $(CMSIS_DSP)/Source/SupportFunctions/SupportFunctions.c \
+ $(CMSIS_DSP)/Source/FilteringFunctions/FilteringFunctions.c \
+ $(CMSIS_DSP)/Source/TransformFunctions/TransformFunctions.c \
+ $(CMSIS_DSP)/Source/WindowFunctions/WindowFunctions.c
+
+# Includes
+DSP_INCLUDES := $(CMSIS_DSP)/Include \
+  $(CMSIS_DSP)/PrivateInclude 
+
+# If Neon and Cortex-A
+#DSP_INCLUDES += $(CMSIS_DSP)/ComputeLibrary/Include 
+#DSP_SRCS += $(CMSIS_DSP)/ComputeLibrary/Source/arm_cl_tables.c 
+
+# Compilation flags for include folders
+INCFLAGS += $(addprefix -I,$(DSP_INCLUDES))
+INCFLAGS += $(addprefix -I,$(CMSIS_CORE_INCLUDES))
+
+OBJECTS := $(DSP_SRCS:%=$(BUILD_DIR)%.o)
+
+# Build rules
+$(BUILD_DIR)libCMSISDSP.a: $(OBJECTS)
+	$(ARMAR) -rc $@ $(OBJECTS)
+
+# $(BUILD_DIR)%.c.o: %.c
+# 	mkdir -p $(dir $@)
+# 	$(CC) -c $(CCFLAGS) $(CPPFLAGS) $< -o $@
+
+# CCFLAGS += -DARM_MATH_CM3 -D__FPU_PRESENT=0
+
 CCFLAGS += $(INCFLAGS)
 CCFLAGS += $(ARCHFLAGS)
 
