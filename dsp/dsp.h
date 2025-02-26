@@ -160,6 +160,120 @@ inline int16_t SoftConvert(float x) {
   return Clip16(static_cast<int32_t>(SoftLimit(x * 0.5f) * 32768.0f));
 }
 
+#define Q15_SHIFT 15
+
+// Macro to unpack, multiply two Q15 values, and store the result
+#define Q15_MULT_PAIR(a_pair, b_pair, result_ptr) do {              \
+  int16_t a0 = (int16_t)((a_pair) & 0xFFFF);                        \
+  int16_t a1 = (int16_t)(((a_pair) >> 16) & 0xFFFF);                \
+  int16_t b0 = (int16_t)((b_pair) & 0xFFFF);                        \
+  int16_t b1 = (int16_t)(((b_pair) >> 16) & 0xFFFF);                \
+  int32_t result0 = ((int32_t)a0 * b0) >> Q15_SHIFT;                \
+  int32_t result1 = ((int32_t)a1 * b1) >> Q15_SHIFT;                \
+  *(int32_t*)(result_ptr) = (result1 << 16) | (result0 & 0xFFFF);   \
+  result_ptr += 2;                                                  \
+} while (0)
+
+// Seems slower
+// *result_ptr++ = (int16_t)(result0 & 0xFFFF);                      
+// *result_ptr++ = (int16_t)(result1 & 0xFFFF);                      
+
+// Multiply two arrays of Q15 values
+template<int Length>
+inline void q15_mult(int16_t* a, int16_t* b, int16_t* result) {
+  STATIC_ASSERT(Length % 4 == 0, not_multiple_of_4);
+  int count = Length / 4; // Pre-divide the length by 4
+  while (count--) {
+    // Load two pairs of Q15 values from arrays 'a' and 'b'
+    int32_t a_pair1 = *(int32_t*)a;         // Load a[0] and a[1]
+    int32_t a_pair2 = *(int32_t*)(a + 2);   // Load a[2] and a[3]
+    int32_t b_pair1 = *(int32_t*)b;         // Load b[0] and b[1]
+    int32_t b_pair2 = *(int32_t*)(b + 2);   // Load b[2] and b[3]
+
+    // Perform the multiplication and store the results using the macro
+    Q15_MULT_PAIR(a_pair1, b_pair1, result);
+    Q15_MULT_PAIR(a_pair2, b_pair2, result);
+
+    // Increment the input pointers as well
+    a += 4;
+    b += 4;
+  }
+}
+
+template<int Length>
+inline void add_q15(int16_t* a, int16_t* b, int16_t* result) {
+  for (int i = 0; i < Length; i++) {
+    int32_t sum = (int32_t)a[i] + b[i];
+    result[i] = Clip16(sum);
+  }
+}
+
+/**
+ * @brief Multiply two Q15 vectors
+ * @param[in]  pSrcA   pointer to first input vector
+ * @param[in]  pSrcB   pointer to second input vector
+ * @param[out] pDst    pointer to output vector
+ * @param[in]  blockSize number of samples in each vector
+ */
+// void ersatz_mult_q15(
+//     const int16_t * pSrcA,
+//     const int16_t * pSrcB,
+//     int16_t * pDst,
+//     uint32_t blockSize)
+// {
+//     uint32_t blkCnt;                               /* Loop counter */
+//     int32_t result;                                /* Temporary result storage */
+
+//     /* Loop unrolling: Compute 4 outputs at a time */
+//     blkCnt = blockSize >> 2U;
+
+//     while (blkCnt > 0U)
+//     {
+//         /* C = A * B */
+//         /* Multiply inputs and store result in temporary variable */
+//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
+//         /* Saturate result to 16-bit */
+//         if (result > 32767) result = 32767;
+//         if (result < -32768) result = -32768;
+//         *pDst++ = (int16_t)result;
+
+//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
+//         if (result > 32767) result = 32767;
+//         if (result < -32768) result = -32768;
+//         *pDst++ = (int16_t)result;
+
+//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
+//         if (result > 32767) result = 32767;
+//         if (result < -32768) result = -32768;
+//         *pDst++ = (int16_t)result;
+
+//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
+//         if (result > 32767) result = 32767;
+//         if (result < -32768) result = -32768;
+//         *pDst++ = (int16_t)result;
+
+//         /* Decrement loop counter */
+//         blkCnt--;
+//     }
+
+//     /* Loop unrolling: Compute remaining outputs */
+//     blkCnt = blockSize % 0x4U;
+
+//     while (blkCnt > 0U)
+//     {
+//         /* C = A * B */
+//         /* Multiply inputs and store result in temporary variable */
+//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
+//         /* Saturate result to 16-bit */
+//         if (result > 32767) result = 32767;
+//         if (result < -32768) result = -32768;
+//         *pDst++ = (int16_t)result;
+
+//         /* Decrement loop counter */
+//         blkCnt--;
+//     }
+// }
+
 }  // namespace stmlib
 
 #endif  // STMLIB_UTILS_DSP_DSP_H_
