@@ -162,6 +162,7 @@ inline int16_t SoftConvert(float x) {
 
 #define Q15_SHIFT 15
 
+/*
 // Macro to unpack, multiply two Q15 values, and store the result
 #define Q15_MULT_PAIR(a_pair, b_pair, result_ptr) do {              \
   int16_t a0 = (int16_t)((a_pair) & 0xFFFF);                        \
@@ -227,72 +228,46 @@ inline void q15_add(const int16_t* a, const int16_t* b, int16_t* result) {
     b += 4;
   }
 }
+*/
 
-/**
- * @brief Multiply two Q15 vectors
- * @param[in]  pSrcA   pointer to first input vector
- * @param[in]  pSrcB   pointer to second input vector
- * @param[out] pDst    pointer to output vector
- * @param[in]  blockSize number of samples in each vector
- */
-// void ersatz_mult_q15(
-//     const int16_t * pSrcA,
-//     const int16_t * pSrcB,
-//     int16_t * pDst,
-//     uint32_t blockSize)
-// {
-//     uint32_t blkCnt;                               /* Loop counter */
-//     int32_t result;                                /* Temporary result storage */
+#define Q15_MULT(a, b, r) do { \
+  r = ((int32_t)(*a++) * (*b++)) >> Q15_SHIFT; \
+  *result++ = (int16_t)r; \
+} while (0)
 
-//     /* Loop unrolling: Compute 4 outputs at a time */
-//     blkCnt = blockSize >> 2U;
+template<int LENGTH>
+inline void q15_mult(const int16_t* a, const int16_t* b, int16_t* result) {
+  STATIC_ASSERT(LENGTH % 4 == 0, length);
+  int count = LENGTH / 4;
+  while (count--) {
+    int32_t r;
+    Q15_MULT(a, b, r);
+    Q15_MULT(a, b, r);
+    Q15_MULT(a, b, r);
+    Q15_MULT(a, b, r);
+  }
+}
 
-//     while (blkCnt > 0U)
-//     {
-//         /* C = A * B */
-//         /* Multiply inputs and store result in temporary variable */
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         /* Saturate result to 16-bit */
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
+#define Q15_ADD(a, b, r, CLIP) do { \
+  r = ((int32_t)(*a++) + (*b++)); \
+  if (CLIP) { \
+    r = Clip16(r); \
+  } \
+  *result++ = (int16_t)r; \
+} while (0)
 
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         /* Decrement loop counter */
-//         blkCnt--;
-//     }
-
-//     /* Loop unrolling: Compute remaining outputs */
-//     blkCnt = blockSize % 0x4U;
-
-//     while (blkCnt > 0U)
-//     {
-//         /* C = A * B */
-//         /* Multiply inputs and store result in temporary variable */
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         /* Saturate result to 16-bit */
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         /* Decrement loop counter */
-//         blkCnt--;
-//     }
-// }
+template<int LENGTH, bool CLIP>
+inline void q15_add(const int16_t* a, const int16_t* b, int16_t* result) {
+  STATIC_ASSERT(LENGTH % 4 == 0, length);
+  int count = LENGTH / 4;
+  while (count--) {
+    int32_t r;
+    Q15_ADD(a, b, r, CLIP);
+    Q15_ADD(a, b, r, CLIP);
+    Q15_ADD(a, b, r, CLIP);
+    Q15_ADD(a, b, r, CLIP);
+  }
+}
 
 }  // namespace stmlib
 
