@@ -174,37 +174,57 @@ inline int16_t SoftConvert(float x) {
   result_ptr += 2;                                                  \
 } while (0)
 
-// Seems slower
-// *result_ptr++ = (int16_t)(result0 & 0xFFFF);                      
-// *result_ptr++ = (int16_t)(result1 & 0xFFFF);                      
-
-// Multiply two arrays of Q15 values
-template<int Length>
-inline void q15_mult(int16_t* a, int16_t* b, int16_t* result) {
-  STATIC_ASSERT(Length % 4 == 0, not_multiple_of_4);
-  int count = Length / 4; // Pre-divide the length by 4
+template<int LENGTH>
+inline void q15_mult(const int16_t* a, const int16_t* b, int16_t* result) {
+  STATIC_ASSERT(LENGTH % 4 == 0, length);
+  int count = LENGTH / 4;
   while (count--) {
-    // Load two pairs of Q15 values from arrays 'a' and 'b'
-    int32_t a_pair1 = *(int32_t*)a;         // Load a[0] and a[1]
-    int32_t a_pair2 = *(int32_t*)(a + 2);   // Load a[2] and a[3]
-    int32_t b_pair1 = *(int32_t*)b;         // Load b[0] and b[1]
-    int32_t b_pair2 = *(int32_t*)(b + 2);   // Load b[2] and b[3]
-
-    // Perform the multiplication and store the results using the macro
+    int32_t a_pair1 = *(int32_t*)a;
+    int32_t a_pair2 = *(int32_t*)(a + 2);
+    int32_t b_pair1 = *(int32_t*)b;
+    int32_t b_pair2 = *(int32_t*)(b + 2);
     Q15_MULT_PAIR(a_pair1, b_pair1, result);
     Q15_MULT_PAIR(a_pair2, b_pair2, result);
-
-    // Increment the input pointers as well
     a += 4;
     b += 4;
   }
 }
 
-template<int Length>
-inline void add_q15(int16_t* a, int16_t* b, int16_t* result) {
-  for (int i = 0; i < Length; i++) {
-    int32_t sum = (int32_t)a[i] + b[i];
-    result[i] = Clip16(sum);
+// Saturating addition
+#define Q15_ADD_PAIR(a_pair, b_pair, result_ptr, CLIP) do {         \
+  int16_t a0 = (int16_t)((a_pair) & 0xFFFF);                        \
+  int16_t a1 = (int16_t)(((a_pair) >> 16) & 0xFFFF);                \
+  int16_t b0 = (int16_t)((b_pair) & 0xFFFF);                        \
+  int16_t b1 = (int16_t)(((b_pair) >> 16) & 0xFFFF);                \
+  if (CLIP) {                                                       \
+    int32_t result0 = Clip16((int32_t)a0 + b0);                     \
+    int32_t result1 = Clip16((int32_t)a1 + b1);                     \
+    *(int32_t*)(result_ptr) = (result1 << 16) | (result0 & 0xFFFF); \
+  } else {                                                          \
+    int32_t result0 = (int32_t)a0 + b0;                             \
+    int32_t result1 = (int32_t)a1 + b1;                             \
+    *(int32_t*)(result_ptr) = (result1 << 16) | (result0 & 0xFFFF); \
+  }                                                                 \
+  result_ptr += 2;                                                  \
+} while (0)
+
+// Seems slower
+// *result_ptr++ = (int16_t)(result0 & 0xFFFF);                      
+// *result_ptr++ = (int16_t)(result1 & 0xFFFF);      
+
+template<int LENGTH, bool CLIP>
+inline void q15_add(const int16_t* a, const int16_t* b, int16_t* result) {
+  STATIC_ASSERT(LENGTH % 4 == 0, length);
+  int count = LENGTH / 4;
+  while (count--) {
+    int32_t a_pair1 = *(int32_t*)a;
+    int32_t a_pair2 = *(int32_t*)(a + 2);
+    int32_t b_pair1 = *(int32_t*)b;
+    int32_t b_pair2 = *(int32_t*)(b + 2);
+    Q15_ADD_PAIR(a_pair1, b_pair1, result, CLIP);
+    Q15_ADD_PAIR(a_pair2, b_pair2, result, CLIP);
+    a += 4;
+    b += 4;
   }
 }
 

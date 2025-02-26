@@ -56,6 +56,14 @@ class RingBuffer {
   inline T* write_ptr() {
     return &buffer_[write_ptr_];
   }
+
+  inline void advance_write_ptr(size_t n) {
+    write_ptr_ = (write_ptr_ + n) % size;
+  }
+
+  inline const T* read_ptr() const {
+    return &buffer_[read_ptr_];
+  }
   
   inline void Write(T v) {
     while (!writable());
