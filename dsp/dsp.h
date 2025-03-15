@@ -143,7 +143,21 @@ inline float SoftClip(float x) {
     return result;
   }
 #endif
-  
+
+inline int32_t ClipS31(int32_t x) {
+  int32_t result;
+  __asm ("ssat %0, %1, %2" : "=r" (result) :  "I" (31), "r" (x) );
+  return result;
+}
+
+inline int32_t SatAdd(int32_t a, int32_t b) {
+  return ClipS31((a >> 1) + (b >> 1)) << 1;
+}
+
+inline int32_t SatSub(int32_t a, int32_t b) {
+  return SatAdd(a, -b);
+}
+
 #ifdef TEST
   inline float Sqrt(float x) {
     return sqrtf(x);
@@ -228,71 +242,41 @@ inline void q15_add(const int16_t* a, const int16_t* b, int16_t* result) {
   }
 }
 
-/**
- * @brief Multiply two Q15 vectors
- * @param[in]  pSrcA   pointer to first input vector
- * @param[in]  pSrcB   pointer to second input vector
- * @param[out] pDst    pointer to output vector
- * @param[in]  blockSize number of samples in each vector
- */
-// void ersatz_mult_q15(
-//     const int16_t * pSrcA,
-//     const int16_t * pSrcB,
-//     int16_t * pDst,
-//     uint32_t blockSize)
-// {
-//     uint32_t blkCnt;                               /* Loop counter */
-//     int32_t result;                                /* Temporary result storage */
+#define Q15_MULT_PAIR_ACCUMULATE(res_ptr, acc_pair, a_pair, b_pair) do {    \
+  int16_t a0 = (int16_t)((a_pair) & 0xFFFF);                  \
+  int16_t a1 = (int16_t)(((a_pair) >> 16) & 0xFFFF);          \
+  int16_t b0 = (int16_t)((b_pair) & 0xFFFF);                  \
+  int16_t b1 = (int16_t)(((b_pair) >> 16) & 0xFFFF);          \
+  int32_t prod0 = ((int32_t)a0 * (int32_t)b0) >> Q15_SHIFT;   \
+  int32_t prod1 = ((int32_t)a1 * (int32_t)b1) >> Q15_SHIFT;   \
+  int32_t acc0 = (int16_t)((acc_pair) & 0xFFFF);              \
+  int32_t acc1 = (int16_t)(((acc_pair) >> 16) & 0xFFFF);      \
+  acc0 += prod0;                                              \
+  acc1 += prod1;                                              \
+  acc0 = Clip16(acc0);                                        \
+  acc1 = Clip16(acc1);                                        \
+  *(int32_t*)(res_ptr) = (acc1 << 16) | (acc0 & 0xFFFF);      \
+  res_ptr += 2;                                               \
+} while (0)
 
-//     /* Loop unrolling: Compute 4 outputs at a time */
-//     blkCnt = blockSize >> 2U;
-
-//     while (blkCnt > 0U)
-//     {
-//         /* C = A * B */
-//         /* Multiply inputs and store result in temporary variable */
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         /* Saturate result to 16-bit */
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         /* Decrement loop counter */
-//         blkCnt--;
-//     }
-
-//     /* Loop unrolling: Compute remaining outputs */
-//     blkCnt = blockSize % 0x4U;
-
-//     while (blkCnt > 0U)
-//     {
-//         /* C = A * B */
-//         /* Multiply inputs and store result in temporary variable */
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         /* Saturate result to 16-bit */
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         /* Decrement loop counter */
-//         blkCnt--;
-//     }
-// }
+template<int LENGTH>
+inline void q15_multiply_accumulate(int16_t* acc, const int16_t* a, const int16_t* b) {
+  STATIC_ASSERT(LENGTH % 4 == 0, length);
+  size_t count = LENGTH / 4;
+  while (count--) {
+    // Load two pairs from each input buffer (4 elements total)
+    int32_t a_pair1 = *(int32_t*)a;
+    int32_t a_pair2 = *(int32_t*)(a + 2);
+    int32_t b_pair1 = *(int32_t*)b;
+    int32_t b_pair2 = *(int32_t*)(b + 2);
+    int32_t acc_pair1 = *(int32_t*)acc;
+    int32_t acc_pair2 = *(int32_t*)(acc + 2);
+    Q15_MULT_PAIR_ACCUMULATE(acc, acc_pair1, a_pair1, b_pair1);
+    Q15_MULT_PAIR_ACCUMULATE(acc, acc_pair2, a_pair2, b_pair2);
+    a += 4;
+    b += 4;
+  }
+}
 
 }  // namespace stmlib
 
