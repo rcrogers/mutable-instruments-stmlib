@@ -131,6 +131,15 @@ inline float SoftClip(float x) {
       return x;
     }
   }
+  inline int32_t ClipS31(int32_t x) {
+    if (x < 0x40000000) {
+      return 0x40000000;
+    } else if (x > 0x3FFFFFFF) {
+      return 0x3FFFFFFF;
+    } else {
+      return x;
+    }
+  }
 #else
   inline int32_t Clip16(int32_t x) {
     int32_t result;
@@ -142,13 +151,12 @@ inline float SoftClip(float x) {
     __asm ("usat %0, %1, %2" : "=r" (result) :  "I" (16), "r" (x) );
     return result;
   }
+  inline int32_t ClipS31(int32_t x) {
+    int32_t result;
+    __asm ("ssat %0, %1, %2" : "=r" (result) :  "I" (31), "r" (x) );
+    return result;
+  }
 #endif
-
-inline int32_t ClipS31(int32_t x) {
-  int32_t result;
-  __asm ("ssat %0, %1, %2" : "=r" (result) :  "I" (31), "r" (x) );
-  return result;
-}
 
 inline int32_t SatAdd(int32_t a, int32_t b) {
   return ClipS31((a >> 1) + (b >> 1)) << 1;
@@ -242,39 +250,52 @@ inline void q15_add(const int16_t* a, const int16_t* b, int16_t* result) {
   }
 }
 
-#define Q15_MULT_PAIR_ACCUMULATE(res_ptr, acc_pair, a_pair, b_pair) do {    \
-  int16_t a0 = (int16_t)((a_pair) & 0xFFFF);                  \
-  int16_t a1 = (int16_t)(((a_pair) >> 16) & 0xFFFF);          \
-  int16_t b0 = (int16_t)((b_pair) & 0xFFFF);                  \
-  int16_t b1 = (int16_t)(((b_pair) >> 16) & 0xFFFF);          \
-  int32_t prod0 = ((int32_t)a0 * (int32_t)b0) >> Q15_SHIFT;   \
-  int32_t prod1 = ((int32_t)a1 * (int32_t)b1) >> Q15_SHIFT;   \
-  int32_t acc0 = (int16_t)((acc_pair) & 0xFFFF);              \
-  int32_t acc1 = (int16_t)(((acc_pair) >> 16) & 0xFFFF);      \
-  acc0 += prod0;                                              \
-  acc1 += prod1;                                              \
-  acc0 = Clip16(acc0);                                        \
-  acc1 = Clip16(acc1);                                        \
-  *(int32_t*)(res_ptr) = (acc1 << 16) | (acc0 & 0xFFFF);      \
-  res_ptr += 2;                                               \
-} while (0)
+#define UNPACK_PAIR_TO_Q15(x) \
+  int32_t x ## pair = *(int32_t*)(x); \
+  int16_t x ## 0 = (int16_t)((x ## pair) & 0xFFFF); \
+  int16_t x ## 1 = (int16_t)(((x ## pair) >> 16) & 0xFFFF);
+
+#define PACK_PAIR(x) \
+  *(int32_t*)(x) = (x ## 1 << 16) | (x ## 0 & 0xFFFF);
+
+inline void q15_2x_multiply_accumulate(const int16_t* a, const int16_t* b, int16_t* acc) {
+  UNPACK_PAIR_TO_Q15(a);
+  UNPACK_PAIR_TO_Q15(b);
+
+  // Need 32-bit headroom for saturating addition
+  int32_t acc_pair = *(int32_t*)(acc);
+  int32_t acc0 = (int16_t)((acc_pair) & 0xFFFF);
+  int32_t acc1 = (int16_t)(((acc_pair) >> 16) & 0xFFFF);
+
+  // int32_t acc0 = acc_res0 << Q15_SHIFT;
+  // int32_t acc1 = acc_res1 << Q15_SHIFT;
+  // __asm ("mla %0, %1, %2, %3" : "=r" (acc0) : "r" (a0), "r" (b0), "0" (acc0));
+  // __asm ("mla %0, %1, %2, %3" : "=r" (acc1) : "r" (a1), "r" (b1), "0" (acc1));
+  // acc0 = ClipS31(acc0) >> Q15_SHIFT;
+  // acc1 = ClipS31(acc1) >> Q15_SHIFT;
+  // // TODO need to pack acc0/acc1 !
+  // PACK_PAIR(acc_res);
+
+  int32_t prod0 = ((int32_t)a0 * (int32_t)b0) >> Q15_SHIFT;
+  int32_t prod1 = ((int32_t)a1 * (int32_t)b1) >> Q15_SHIFT;
+  acc0 += prod0;
+  acc1 += prod1;
+  acc0 = Clip16(acc0);
+  acc1 = Clip16(acc1);
+
+  PACK_PAIR(acc);
+}
 
 template<int LENGTH>
-inline void q15_multiply_accumulate(int16_t* acc, const int16_t* a, const int16_t* b) {
+inline void q15_multiply_accumulate(const int16_t* a, const int16_t* b, int16_t* acc) {
   STATIC_ASSERT(LENGTH % 4 == 0, length);
   size_t count = LENGTH / 4;
   while (count--) {
-    // Load two pairs from each input buffer (4 elements total)
-    int32_t a_pair1 = *(int32_t*)a;
-    int32_t a_pair2 = *(int32_t*)(a + 2);
-    int32_t b_pair1 = *(int32_t*)b;
-    int32_t b_pair2 = *(int32_t*)(b + 2);
-    int32_t acc_pair1 = *(int32_t*)acc;
-    int32_t acc_pair2 = *(int32_t*)(acc + 2);
-    Q15_MULT_PAIR_ACCUMULATE(acc, acc_pair1, a_pair1, b_pair1);
-    Q15_MULT_PAIR_ACCUMULATE(acc, acc_pair2, a_pair2, b_pair2);
+    q15_2x_multiply_accumulate(a, b, acc);
+    q15_2x_multiply_accumulate(a + 2, b + 2, acc + 2);
     a += 4;
     b += 4;
+    acc += 4;
   }
 }
 
