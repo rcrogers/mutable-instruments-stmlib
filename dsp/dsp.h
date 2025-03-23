@@ -264,8 +264,14 @@ inline void q15_2x_multiply_accumulate(const int16_t* a, const int16_t* b, int16
 
   // Need 32-bit headroom for saturating addition
   int32_t acc_pair = *(int32_t*)(acc);
-  int32_t acc0 = (int16_t)((acc_pair) & 0xFFFF);
-  int32_t acc1 = (int16_t)(((acc_pair) >> 16) & 0xFFFF);
+  int32_t acc0 = (int16_t)((acc_pair) & 0xFFFF) << Q15_SHIFT;
+  int32_t acc1 = (int16_t)(((acc_pair) >> 16) & 0xFFFF) << Q15_SHIFT;
+
+  acc0 += (int32_t)a0 * b0;
+  acc1 += (int32_t)a1 * b1;
+  acc0 = acc0 >> Q15_SHIFT;
+  acc1 = acc1 >> Q15_SHIFT;
+  PACK_PAIR(acc);
 
   // int32_t acc0 = acc_res0 << Q15_SHIFT;
   // int32_t acc1 = acc_res1 << Q15_SHIFT;
@@ -275,15 +281,6 @@ inline void q15_2x_multiply_accumulate(const int16_t* a, const int16_t* b, int16
   // acc1 = ClipS31(acc1) >> Q15_SHIFT;
   // // TODO need to pack acc0/acc1 !
   // PACK_PAIR(acc_res);
-
-  int32_t prod0 = ((int32_t)a0 * (int32_t)b0) >> Q15_SHIFT;
-  int32_t prod1 = ((int32_t)a1 * (int32_t)b1) >> Q15_SHIFT;
-  acc0 += prod0;
-  acc1 += prod1;
-  acc0 = Clip16(acc0);
-  acc1 = Clip16(acc1);
-
-  PACK_PAIR(acc);
 }
 
 template<int LENGTH>
