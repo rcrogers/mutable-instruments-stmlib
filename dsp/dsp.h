@@ -131,6 +131,15 @@ inline float SoftClip(float x) {
       return x;
     }
   }
+  inline int32_t ClipS31(int32_t x) {
+    if (x < 0x40000000) {
+      return 0x40000000;
+    } else if (x > 0x3FFFFFFF) {
+      return 0x3FFFFFFF;
+    } else {
+      return x;
+    }
+  }
 #else
   inline int32_t Clip16(int32_t x) {
     int32_t result;
@@ -142,8 +151,21 @@ inline float SoftClip(float x) {
     __asm ("usat %0, %1, %2" : "=r" (result) :  "I" (16), "r" (x) );
     return result;
   }
+  inline int32_t ClipS31(int32_t x) {
+    int32_t result;
+    __asm ("ssat %0, %1, %2" : "=r" (result) :  "I" (31), "r" (x) );
+    return result;
+  }
 #endif
-  
+
+inline int32_t SatAdd(int32_t a, int32_t b) {
+  return ClipS31((a >> 1) + (b >> 1)) << 1;
+}
+
+inline int32_t SatSub(int32_t a, int32_t b) {
+  return SatAdd(a, -b);
+}
+
 #ifdef TEST
   inline float Sqrt(float x) {
     return sqrtf(x);
@@ -228,71 +250,54 @@ inline void q15_add(const int16_t* a, const int16_t* b, int16_t* result) {
   }
 }
 
-/**
- * @brief Multiply two Q15 vectors
- * @param[in]  pSrcA   pointer to first input vector
- * @param[in]  pSrcB   pointer to second input vector
- * @param[out] pDst    pointer to output vector
- * @param[in]  blockSize number of samples in each vector
- */
-// void ersatz_mult_q15(
-//     const int16_t * pSrcA,
-//     const int16_t * pSrcB,
-//     int16_t * pDst,
-//     uint32_t blockSize)
-// {
-//     uint32_t blkCnt;                               /* Loop counter */
-//     int32_t result;                                /* Temporary result storage */
+#define UNPACK_PAIR_TO_Q15(x) \
+  int32_t x ## pair = *(int32_t*)(x); \
+  int16_t x ## 0 = (int16_t)((x ## pair) & 0xFFFF); \
+  int16_t x ## 1 = (int16_t)(((x ## pair) >> 16) & 0xFFFF);
 
-//     /* Loop unrolling: Compute 4 outputs at a time */
-//     blkCnt = blockSize >> 2U;
+#define PACK_PAIR(x) \
+  *(int32_t*)(x) = (x ## 1 << 16) | (x ## 0 & 0xFFFF);
 
-//     while (blkCnt > 0U)
-//     {
-//         /* C = A * B */
-//         /* Multiply inputs and store result in temporary variable */
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         /* Saturate result to 16-bit */
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
+inline void q15_2x_multiply_accumulate(const int16_t* a, const int16_t* b, int16_t* acc) {
+  UNPACK_PAIR_TO_Q15(a);
+  UNPACK_PAIR_TO_Q15(b);
 
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
+  // Need 32-bit headroom for saturating addition
+  int32_t acc_pair = *(int32_t*)(acc);
+  int32_t acc0 = (int16_t)((acc_pair) & 0xFFFF);
+  int32_t acc1 = (int16_t)(((acc_pair) >> 16) & 0xFFFF);
 
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
+  // int32_t acc0 = acc_res0 << Q15_SHIFT;
+  // int32_t acc1 = acc_res1 << Q15_SHIFT;
+  // __asm ("mla %0, %1, %2, %3" : "=r" (acc0) : "r" (a0), "r" (b0), "0" (acc0));
+  // __asm ("mla %0, %1, %2, %3" : "=r" (acc1) : "r" (a1), "r" (b1), "0" (acc1));
+  // acc0 = ClipS31(acc0) >> Q15_SHIFT;
+  // acc1 = ClipS31(acc1) >> Q15_SHIFT;
+  // // TODO need to pack acc0/acc1 !
+  // PACK_PAIR(acc_res);
 
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
+  int32_t prod0 = ((int32_t)a0 * (int32_t)b0) >> Q15_SHIFT;
+  int32_t prod1 = ((int32_t)a1 * (int32_t)b1) >> Q15_SHIFT;
+  acc0 += prod0;
+  acc1 += prod1;
+  acc0 = Clip16(acc0);
+  acc1 = Clip16(acc1);
 
-//         /* Decrement loop counter */
-//         blkCnt--;
-//     }
+  PACK_PAIR(acc);
+}
 
-//     /* Loop unrolling: Compute remaining outputs */
-//     blkCnt = blockSize % 0x4U;
-
-//     while (blkCnt > 0U)
-//     {
-//         /* C = A * B */
-//         /* Multiply inputs and store result in temporary variable */
-//         result = ((int32_t)(*pSrcA++) * (*pSrcB++)) >> 15;
-//         /* Saturate result to 16-bit */
-//         if (result > 32767) result = 32767;
-//         if (result < -32768) result = -32768;
-//         *pDst++ = (int16_t)result;
-
-//         /* Decrement loop counter */
-//         blkCnt--;
-//     }
-// }
+template<int LENGTH>
+inline void q15_multiply_accumulate(const int16_t* a, const int16_t* b, int16_t* acc) {
+  STATIC_ASSERT(LENGTH % 4 == 0, length);
+  size_t count = LENGTH / 4;
+  while (count--) {
+    q15_2x_multiply_accumulate(a, b, acc);
+    q15_2x_multiply_accumulate(a + 2, b + 2, acc + 2);
+    a += 4;
+    b += 4;
+    acc += 4;
+  }
+}
 
 }  // namespace stmlib
 

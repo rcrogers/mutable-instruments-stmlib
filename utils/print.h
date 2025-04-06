@@ -10,10 +10,14 @@
 
 namespace stmlib {
 
+/* Configuration constants */
+#define SCI_DECIMAL_PLACES 2   /* Number of decimal places to show */
+#define SCI_EXP_DIGITS 1       /* Number of exponent digits to show */
+
 /**
  * Converts an int32_t to scientific notation and stores it in the provided buffer
  * 
- * Format will be: 1.234e+05 for 123400
+ * Format will be: 1.23E3 for 1234
  * 
  * @param number The int32_t number to convert
  * @param buffer The character buffer to store the result
@@ -26,26 +30,31 @@ int int32E(int32_t number, char* buffer, uint16_t bufferSize) {
     int16_t i = 0;
     bool isNegative = false;
     
+    /* Minimum buffer size needed: 
+       sign(1) + digit(1) + decimal(1) + decimal_places(SCI_DECIMAL_PLACES) + 
+       e(1) + exp_digits(SCI_EXP_DIGITS) + null(1) */
+    uint16_t minBufferSize = 1 + 1 + 1 + SCI_DECIMAL_PLACES + 1 + SCI_EXP_DIGITS + 1;
+    
     /* Check input parameters */
-    if (buffer == NULL || bufferSize < 10) {
+    if (buffer == NULL || bufferSize < minBufferSize) {
         return 0;  /* Buffer too small or NULL */
     }
     
     /* Handle special case of zero */
     if (number == 0) {
-        if (bufferSize >= 10) {
-            buffer[0] = '0';
-            buffer[1] = '.';
-            buffer[2] = '0';
-            buffer[3] = 'e';
-            buffer[4] = '+';
-            buffer[5] = '0';
-            buffer[6] = '0';
-            buffer[7] = '\0';
-            return 7;
-        } else {
-            return 0;
+        buffer[0] = '0';
+        buffer[1] = '.';
+        
+        /* Add decimal zeros */
+        for (i = 0; i < SCI_DECIMAL_PLACES; i++) {
+            buffer[2 + i] = '0';
         }
+        
+        buffer[2 + SCI_DECIMAL_PLACES] = 'e';
+        buffer[3 + SCI_DECIMAL_PLACES] = '0';
+        buffer[4 + SCI_DECIMAL_PLACES] = '\0';
+        
+        return (4 + SCI_DECIMAL_PLACES);
     }
     
     /* Handle negative numbers */
@@ -54,7 +63,7 @@ int int32E(int32_t number, char* buffer, uint16_t bufferSize) {
         /* Avoid overflow with INT32_MIN */
         if (number == INT32_MIN) {
             absValue = INT32_MAX;
-            exponent = 10;  /* ~2.147e+09 */
+            exponent = 9;  /* ~2.1E9 */
         } else {
             absValue = -number;
         }
@@ -93,11 +102,11 @@ int int32E(int32_t number, char* buffer, uint16_t bufferSize) {
         /* Write decimal point */
         buffer[i++] = '.';
         
-        /* Write fractional digits (up to 2 for precision) */
+        /* Write fractional digits (up to SCI_DECIMAL_PLACES for precision) */
         absValue %= divisor;
         divisor /= 10;
         
-        while (divisor > 0 && digitCount < 2) {
+        while (divisor > 0 && digitCount < SCI_DECIMAL_PLACES) {
             buffer[i++] = '0' + (absValue / divisor);
             absValue %= divisor;
             divisor /= 10;
@@ -105,39 +114,47 @@ int int32E(int32_t number, char* buffer, uint16_t bufferSize) {
         }
         
         /* Add trailing zeros for precision if needed */
-        while (digitCount < 2) {
+        while (digitCount < SCI_DECIMAL_PLACES) {
             buffer[i++] = '0';
             digitCount++;
         }
     }
     
-    /* Write exponent */
+    /* Write simplified exponent */
     buffer[i++] = 'e';
     
-    // if (exponent >= 0) {
-    //     buffer[i++] = '+';
-    // } else {
-    //     buffer[i++] = '-';
-    //     exponent = -exponent;
-    // }
-    
-    /* Write at least 2 digits for exponent */
-    if (exponent < 10) {
-        buffer[i++] = '0';
+    /* Handle multi-digit exponents if SCI_EXP_DIGITS > 1 */
+    if (SCI_EXP_DIGITS > 1) {
+        int16_t expTemp = exponent;
+        int16_t expDigits = 1;
+        int16_t expDivisor = 1;
+        
+        /* Count digits in exponent */
+        while (expTemp >= 10) {
+            expTemp /= 10;
+            expDigits++;
+        }
+        
+        /* Add leading zeros if needed */
+        for (int16_t j = expDigits; j < SCI_EXP_DIGITS; j++) {
+            buffer[i++] = '0';
+        }
+        
+        /* Calculate divisor for most significant exponent digit */
+        for (int16_t j = 1; j < expDigits; j++) {
+            expDivisor *= 10;
+        }
+        
+        /* Write exponent digits */
+        while (expDivisor > 0) {
+            buffer[i++] = '0' + (exponent / expDivisor);
+            exponent %= expDivisor;
+            expDivisor /= 10;
+        }
+    } else {
+        /* Just write the single exponent digit */
+        buffer[i++] = '0' + exponent;
     }
-    
-    /* Convert exponent to characters */
-    if (exponent >= 100) {
-        buffer[i++] = '0' + (exponent / 100);
-        exponent %= 100;
-    }
-    
-    if (exponent >= 10 || i > 0) {
-        buffer[i++] = '0' + (exponent / 10);
-        exponent %= 10;
-    }
-    
-    buffer[i++] = '0' + exponent;
     
     /* Null terminate */
     buffer[i] = '\0';
@@ -146,9 +163,10 @@ int int32E(int32_t number, char* buffer, uint16_t bufferSize) {
 }
 
 /* Example usage:
- * int32_t number = 123456;
+ * int32_t number = 1234;
  * char buffer[32];
  * int32ToScientificNotation(number, buffer, sizeof(buffer));
+ * Result: "1.23E3"
  */
 
 }
