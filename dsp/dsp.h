@@ -255,7 +255,7 @@ inline void q15_add(const int16_t* a, const int16_t* b, int16_t* result) {
   int16_t x ## 0 = (int16_t)((x ## pair) & 0xFFFF); \
   int16_t x ## 1 = (int16_t)(((x ## pair) >> 16) & 0xFFFF);
 
-#define PACK_PAIR(x) \
+#define PACK_PAIR_Q15(x) \
   *(int32_t*)(x) = (x ## 1 << 16) | (x ## 0 & 0xFFFF);
 
 inline void q15_2x_multiply_accumulate(const int16_t* a, const int16_t* b, int16_t* acc) {
@@ -271,7 +271,7 @@ inline void q15_2x_multiply_accumulate(const int16_t* a, const int16_t* b, int16
   acc1 += (int32_t)a1 * b1;
   acc0 = acc0 >> Q15_SHIFT;
   acc1 = acc1 >> Q15_SHIFT;
-  PACK_PAIR(acc);
+  PACK_PAIR_Q15(acc);
 
   // int32_t acc0 = acc_res0 << Q15_SHIFT;
   // int32_t acc1 = acc_res1 << Q15_SHIFT;
@@ -280,7 +280,7 @@ inline void q15_2x_multiply_accumulate(const int16_t* a, const int16_t* b, int16
   // acc0 = ClipS31(acc0) >> Q15_SHIFT;
   // acc1 = ClipS31(acc1) >> Q15_SHIFT;
   // // TODO need to pack acc0/acc1 !
-  // PACK_PAIR(acc_res);
+  // PACK_PAIR_Q15(acc_res);
 }
 
 template<int LENGTH>
@@ -290,6 +290,46 @@ inline void q15_multiply_accumulate(const int16_t* a, const int16_t* b, int16_t*
   while (count--) {
     q15_2x_multiply_accumulate(a, b, acc);
     q15_2x_multiply_accumulate(a + 2, b + 2, acc + 2);
+    a += 4;
+    b += 4;
+    acc += 4;
+  }
+}
+
+#define U16_SHIFT 16
+
+#define UNPACK_PAIR_TO_U16(x) \
+  uint32_t x ## pair = *(uint32_t*)(x); \
+  uint16_t x ## 0 = (uint16_t)((x ## pair) & 0xFFFF); \
+  uint16_t x ## 1 = (uint16_t)(((x ## pair) >> 16) & 0xFFFF);
+
+#define PACK_PAIR_U16(x) \
+  *(uint32_t*)(x) = (x ## 1 << 16) | (x ## 0 & 0xFFFF);
+
+inline void u16_2x_multiply_accumulate(const uint16_t* a, const uint16_t* b, uint16_t* acc) {
+  UNPACK_PAIR_TO_U16(a);
+  UNPACK_PAIR_TO_U16(b);
+
+  // Need 32-bit headroom for saturating addition
+  uint32_t acc_pair = *(uint32_t*)(acc);
+  uint32_t acc0 = (uint16_t)((acc_pair) & 0xFFFF) << U16_SHIFT;
+  uint32_t acc1 = (uint16_t)(((acc_pair) >> 16) & 0xFFFF) << U16_SHIFT;
+
+  acc0 += (uint32_t)a0 * b0;
+  acc1 += (uint32_t)a1 * b1;
+  acc0 = acc0 >> U16_SHIFT;
+  acc1 = acc1 >> U16_SHIFT;
+
+  PACK_PAIR_U16(acc);
+}
+
+template<int LENGTH>
+inline void u16_multiply_accumulate(const uint16_t* a, const uint16_t* b, uint16_t* acc) {
+  STATIC_ASSERT(LENGTH % 4 == 0, length);
+  size_t count = LENGTH / 4;
+  while (count--) {
+    u16_2x_multiply_accumulate(a, b, acc);
+    u16_2x_multiply_accumulate(a + 2, b + 2, acc + 2);
     a += 4;
     b += 4;
     acc += 4;
