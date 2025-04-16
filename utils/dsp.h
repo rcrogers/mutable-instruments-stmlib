@@ -113,7 +113,10 @@ inline int16_t Interpolate824(const uint8_t* table, uint32_t phase) {
 inline uint32_t Interpolate88(const uint32_t* table, uint16_t index) {
   uint32_t a = table[index >> 8];
   uint32_t b = table[(index >> 8) + 1];
-  return a + (static_cast<int32_t>(b - a) * static_cast<int32_t>(index & 0xff) >> 8);
+  int32_t a_shifted = a >> 1;
+  int32_t b_shifted = b >> 1;
+  uint32_t interp = a_shifted + ((b_shifted - a_shifted) * (index & 0xff) >> 8);
+  return (interp << 1) | (a & 0x1);
 }
 
 inline uint16_t Interpolate88(const uint16_t* table, uint16_t index) {
