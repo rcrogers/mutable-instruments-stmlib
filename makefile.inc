@@ -168,7 +168,7 @@ endif
 STARTUP_OBJ   = $(BUILD_DIR)startup_stm32f10x_$(DENSITY).o
 LINKER_SCRIPT = stmlib/linker_scripts/stm32f10x_flash_$(DENSITY)$(LD_SUFFIX).ld
 FW_STDDRIVER_DIR = $(STM32_PATH)/STM32F10x_StdPeriph_Driver
-ARCHFLAGS = -mcpu=cortex-m3 -mthumb -fno-unroll-loops
+ARCHFLAGS = -mcpu=cortex-m3 -mthumb -fno-unroll-loops -mfloat-abi=soft
 ARCH_DEFINE = GCC_ARMCM3
 OPENOCD_TARGET = f1x
 

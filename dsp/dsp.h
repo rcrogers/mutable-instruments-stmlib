@@ -131,39 +131,71 @@ inline float SoftClip(float x) {
       return x;
     }
   }
-  inline int32_t ClipS31(int32_t x) {
-    if (x < 0x40000000) {
-      return 0x40000000;
-    } else if (x > 0x3FFFFFFF) {
-      return 0x3FFFFFFF;
-    } else {
-      return x;
-    }
-  }
 #else
-  inline int32_t Clip16(int32_t x) {
+  inline int32_t ClipS(int32_t x, uint8_t bits) {
     int32_t result;
-    __asm ("ssat %0, %1, %2" : "=r" (result) :  "I" (16), "r" (x) );
+    __asm ("ssat %0, %1, %2" : "=r" (result) :  "I" (bits), "r" (x) );
     return result;
   }
+  inline int32_t Clip16(int32_t x) { return ClipS(x, 16); }
+
   inline uint32_t ClipU16(int32_t x) {
     uint32_t result;
     __asm ("usat %0, %1, %2" : "=r" (result) :  "I" (16), "r" (x) );
     return result;
   }
-  inline int32_t ClipS31(int32_t x) {
-    int32_t result;
-    __asm ("ssat %0, %1, %2" : "=r" (result) :  "I" (31), "r" (x) );
-    return result;
-  }
 #endif
 
-inline int32_t SatAdd(int32_t a, int32_t b) {
-  return ClipS31((a >> 1) + (b >> 1)) << 1;
+inline int32_t SatAdd(int32_t a, int32_t b, uint8_t bits) {
+  return ClipS((a >> 1) + (b >> 1), bits - 1) << 1;
 }
 
-inline int32_t SatSub(int32_t a, int32_t b) {
-  return SatAdd(a, -b);
+inline int32_t SatSub(int32_t a, int32_t b, uint8_t bits) {
+  return SatAdd(a, -b, bits);
+}
+
+inline int32_t MulS32(int32_t a, int32_t b) {
+    int32_t lo, hi;
+    __asm__ volatile (
+        "smull  %[lo], %[hi], %[A], %[B]\n"
+        : [lo] "=r" (lo),
+          [hi] "=r" (hi)
+        : [A]  "r"  (a),
+          [B]  "r"  (b)
+        /* no clobbers */
+    );
+    return hi;
+}
+
+inline uint32_t MulU32(uint32_t a, uint32_t b) {
+    uint32_t lo, hi;
+    __asm__ volatile (
+        "umull  %[lo], %[hi], %[A], %[B]\n"
+        : [lo] "=r" (lo),
+          [hi] "=r" (hi)
+        : [A]  "r"  (a),
+          [B]  "r"  (b)
+        /* no clobbers */
+    );
+    return hi;
+}
+
+#define SHIFT_BY_SIGNED(x, shift) ((shift >= 0) ? (x << shift) : (x >> -shift))
+
+inline uint32_t FractionU32(uint32_t num, uint32_t denom_gte_num) {
+  if (denom_gte_num == 0) return UINT32_MAX;
+  if (num == 0) return 0;
+
+  uint8_t num_upshift = __builtin_clzl(num);
+  uint32_t num_32 = num << num_upshift;
+
+  int8_t denom_shift = __builtin_clzl(denom_gte_num) - 16;
+  uint32_t denom_16 = SHIFT_BY_SIGNED(denom_gte_num, denom_shift);
+
+  uint32_t result_16 = num_32 / denom_16;
+  CONSTRAIN(result_16, 0, UINT16_MAX);
+  int result_shift = 32 + denom_shift - num_upshift;
+  return SHIFT_BY_SIGNED(result_16, result_shift);
 }
 
 #ifdef TEST
