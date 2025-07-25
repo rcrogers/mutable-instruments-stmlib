@@ -46,7 +46,7 @@ class VoiceAllocator {
 
   void Init() {
     size_ = 0;
-    Clear();
+    Reset();
   }
 
   uint8_t NoteOn(uint8_t note, uint8_t stealable_voice_index) {
@@ -63,9 +63,9 @@ class VoiceAllocator {
     // Then, try to find the least recently touched, currently inactive voice.
     if (voice == NOT_ALLOCATED) {
       for (uint8_t i = 0; i < capacity; ++i) {
-        if (lru_[i] < size_ && !(pool_[lru_[i]] & ACTIVE_NOTE)) {
-          voice = lru_[i];
-        }
+        uint8_t maybe_voice = voice_for_touch_order_[i];
+        bool active = latest_note_for_voice_[maybe_voice] & ACTIVE_NOTE;
+        if (maybe_voice < size_ && !active) voice = maybe_voice;
       }
     }
 
@@ -73,7 +73,7 @@ class VoiceAllocator {
     if (voice == NOT_ALLOCATED) voice = stealable_voice_index;
     if (voice == NOT_ALLOCATED) return voice; // Cannot steal; NOOP
 
-    pool_[voice] = note | ACTIVE_NOTE;
+    latest_note_for_voice_[voice] = note | ACTIVE_NOTE;
     Touch(voice);
     return voice;
   }
@@ -81,7 +81,7 @@ class VoiceAllocator {
   uint8_t NoteOff(uint8_t note) {
     uint8_t voice = Find(note);
     if (voice != NOT_ALLOCATED) {
-      pool_[voice] &= 0x7f; // ACTIVE_NOTE = false
+      latest_note_for_voice_[voice] &= 0x7f; // ACTIVE_NOTE = false
       Touch(voice);
     }
     return voice;
@@ -90,23 +90,23 @@ class VoiceAllocator {
   // Find the voice whose latest note was this note
   uint8_t Find(uint8_t note) const {
     for (uint8_t i = 0; i < size_; ++i) {
-      if ((pool_[i] & 0x7f) == note) {
+      if ((latest_note_for_voice_[i] & 0x7f) == note) {
         return i;
       }
     }
     return NOT_ALLOCATED;
   }
 
-  void Clear() {
-    memset(&pool_, 0, sizeof(pool_));
+  void Reset() {
+    memset(&latest_note_for_voice_, 0, sizeof(latest_note_for_voice_));
     for (uint8_t i = 0; i < capacity; ++i) {
-      lru_[i] = capacity - i - 1;
+      voice_for_touch_order_[i] = capacity - i - 1;
     }
   }
 
-  inline void ClearNotes() {
+  inline void AllNotesOff() {
     for (uint8_t i = 0; i < capacity; ++i) {
-      pool_[i] &= 0x7f; // ACTIVE_NOTE = false
+      latest_note_for_voice_[i] &= 0x7f; // ACTIVE_NOTE = false
     }
   }
 
@@ -121,18 +121,21 @@ class VoiceAllocator {
     int8_t source = capacity - 1;
     int8_t destination = capacity - 1;
     while (source >= 0) {
-      if (lru_[source] != voice) {
-        lru_[destination--] = lru_[source];
+      if (voice_for_touch_order_[source] != voice) {
+        voice_for_touch_order_[destination--] = voice_for_touch_order_[source];
       }
       --source;
     }
-    lru_[0] = voice;
+    voice_for_touch_order_[0] = voice;
   }
    
   // Maps voice index to its most recent note (even after NoteOff!)
-  uint8_t pool_[capacity];
-  // Holds the indices of the voices sorted by most recent usage.
-  uint8_t lru_[capacity];
+  uint8_t latest_note_for_voice_[capacity];
+
+  // Holds the indices of the voices sorted by most recent usage first
+  uint8_t voice_for_touch_order_[capacity];
+
+  // Number of available voices (may be less than static capacity)
   uint8_t size_;
 
   DISALLOW_COPY_AND_ASSIGN(VoiceAllocator);
