@@ -102,6 +102,7 @@
 *  Clock Definitions
 *******************************************************************************/
 #ifdef SYSCLK_FREQ_HSE
+  // char (*__kaboom)[128] = 1;
   const uint32_t SystemFrequency         = SYSCLK_FREQ_HSE;        /*!< System Clock Frequency (Core Clock) */
   const uint32_t SystemFrequency_SysClk  = SYSCLK_FREQ_HSE;        /*!< System clock                        */
   const uint32_t SystemFrequency_AHBClk  = SYSCLK_FREQ_HSE;        /*!< AHB System bus speed                */
@@ -132,6 +133,7 @@
   const uint32_t SystemFrequency_APB1Clk = (SYSCLK_FREQ_56MHz/2);  /*!< APB Peripheral bus 1 (low)  speed   */
   const uint32_t SystemFrequency_APB2Clk = SYSCLK_FREQ_56MHz;      /*!< APB Peripheral bus 2 (high) speed   */  
 #elif defined SYSCLK_FREQ_72MHz
+  // char (*__kaboom)[72] = 1;
   const uint32_t SystemFrequency         = SYSCLK_FREQ_72MHz;      /*!< System Clock Frequency (Core Clock) */
   const uint32_t SystemFrequency_SysClk  = SYSCLK_FREQ_72MHz;      /*!< System clock                        */
   const uint32_t SystemFrequency_AHBClk  = SYSCLK_FREQ_72MHz;      /*!< AHB System bus speed                */

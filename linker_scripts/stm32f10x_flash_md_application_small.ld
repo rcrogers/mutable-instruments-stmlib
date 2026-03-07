@@ -23,6 +23,13 @@ SECTIONS
     _sidata = .;
   } > FLASH
 
+  /* Discard exception unwinding info - not needed with -fno-exceptions */
+  /DISCARD/ :
+  {
+    *(.ARM.exidx*)
+    *(.ARM.extab*)
+  }
+
   .data : AT (ADDR(.text) + SIZEOF(.text))
   {
     _sdata = .;

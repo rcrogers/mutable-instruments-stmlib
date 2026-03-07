@@ -219,12 +219,16 @@ class ChunkStorage {
   DISALLOW_COPY_AND_ASSIGN(ChunkStorage);
 };
 
+// template <int val>
+// struct PrintConst;
+
 template<uint32_t last_address = 0x8020000, uint16_t num_pages = 1>
 class Storage {
  public:
   enum {
     FLASH_STORAGE_BASE = last_address - num_pages * PAGE_SIZE
   };
+  // PrintConst<FLASH_STORAGE_BASE> fsb;
   
   template<typename T>
   static void Save(const T& data) {
