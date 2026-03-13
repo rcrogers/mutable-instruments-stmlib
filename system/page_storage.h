@@ -222,10 +222,13 @@ class ChunkStorage {
 // template <int val>
 // struct PrintConst;
 
+typedef uint16_t StorageChecksum;
+
 template<uint32_t last_address = 0x8020000, uint16_t num_pages = 1>
 class Storage {
  public:
   enum {
+    MAX_DATA_SIZE = PAGE_SIZE - sizeof(StorageChecksum),
     FLASH_STORAGE_BASE = last_address - num_pages * PAGE_SIZE
   };
   // PrintConst<FLASH_STORAGE_BASE> fsb;
@@ -259,7 +262,7 @@ class Storage {
   static bool Load(void* data, size_t data_size, uint8_t page_index) {
     uint32_t base = FLASH_STORAGE_BASE + page_index * PAGE_SIZE;
     memcpy(data, (void*)(base), data_size);
-    uint16_t checksum = (*(uint16_t*)(base + data_size));
+    StorageChecksum checksum = (*(StorageChecksum*)(base + data_size));
     return checksum == Checksum(data, data_size);
   };
   
@@ -349,12 +352,12 @@ class Storage {
       size -= 4;
     }
     // Write checksum.
-    uint16_t checksum = Checksum(data, data_size);
+    StorageChecksum checksum = Checksum(data, data_size);
     FLASH_ProgramHalfWord(start + data_size, checksum);
   }
-   
-  static uint16_t Checksum(const void* data, uint16_t size) {
-    uint16_t s = 0;
+
+  static StorageChecksum Checksum(const void* data, uint16_t size) {
+    StorageChecksum s = 0;
     const uint8_t* d = static_cast<const uint8_t*>(data);
     while (size--) {
       s += *d++;
