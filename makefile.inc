@@ -221,8 +221,13 @@ CCFLAGS = \
 			-fshort-enums \
 			-fno-move-loop-invariants \
 			-fno-unwind-tables \
+			$(STACK_CCFLAGS) \
 			$(INCFLAGS) \
 			$(ARCHFLAGS)
+# Opt-in stack-usage checking. Module makefiles may set STACK_CCFLAGS before
+# including this file, e.g. `STACK_CCFLAGS = -Wstack-usage=512 -fstack-usage`.
+# Value must match the stack reservation in the active linker script.
+# TODO: adopt for other modules (only yarns is audited as of 2026-04-18).
 
 CPPFLAGS = -fno-exceptions -fno-rtti
 
@@ -281,6 +286,12 @@ $(BUILD_DIR)%.o: %.c
 
 $(BUILD_DIR)%.o: %.cc
 	$(CXX) -c $(CCFLAGS) $(CPPFLAGS) $< -o $@
+
+# core_cm3.c uses naked-asm intrinsics for which GCC cannot compute stack usage,
+# producing a warning that becomes a -Werror under -fstack-usage. Strip the
+# stack-usage flag for this file only.
+$(BUILD_DIR)core_cm3.o: $(FW_CORE_DIR)/core_cm3.c
+	$(CC) -c $(filter-out -fstack-usage,$(CCFLAGS)) -std=c99 $< -o $@
 
 $(BUILD_DIR)%.d: %.s
 	$(CC) -c -x assembler-with-cpp -MM $(ASFLAGS) $< -MF $@ -MT $(@:.d=.o)
