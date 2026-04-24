@@ -42,7 +42,7 @@ SECTIONS
   .bss :
   {
     _sstack = .;
-    . = . + 512;
+    . = . + 2048;
     _estack = .;
     _sbss = .;
     *(.bss*)
