@@ -293,26 +293,17 @@ inline void q15_add(const int16_t* a, const int16_t* b, int16_t* result) {
 inline void q15_2x_multiply_accumulate(const int16_t* a, const int16_t* b, int16_t* acc) {
   UNPACK_PAIR_TO_Q15(a);
   UNPACK_PAIR_TO_Q15(b);
+  UNPACK_PAIR_TO_Q15(acc);
 
-  // Need 32-bit headroom for saturating addition
-  int32_t acc_pair = *(int32_t*)(acc);
-  int32_t acc0 = (int16_t)((acc_pair) & 0xFFFF) << Q15_SHIFT;
-  int32_t acc1 = (int16_t)(((acc_pair) >> 16) & 0xFFFF) << Q15_SHIFT;
-
-  acc0 += (int32_t)a0 * b0;
-  acc1 += (int32_t)a1 * b1;
-  acc0 = acc0 >> Q15_SHIFT;
-  acc1 = acc1 >> Q15_SHIFT;
-  PACK_PAIR_Q15(acc);
-
-  // int32_t acc0 = acc_res0 << Q15_SHIFT;
-  // int32_t acc1 = acc_res1 << Q15_SHIFT;
-  // __asm ("mla %0, %1, %2, %3" : "=r" (acc0) : "r" (a0), "r" (b0), "0" (acc0));
-  // __asm ("mla %0, %1, %2, %3" : "=r" (acc1) : "r" (a1), "r" (b1), "0" (acc1));
-  // acc0 = ClipS31(acc0) >> Q15_SHIFT;
-  // acc1 = ClipS31(acc1) >> Q15_SHIFT;
-  // // TODO need to pack acc0/acc1 !
-  // PACK_PAIR_Q15(acc_res);
+  // Wrapping (non-saturating) MAC: acc += (a * b) >> Q15_SHIFT.
+  // Equivalent modulo 2^16 to the older upshift-then-downshift form
+  // ((acc << 15) + a*b) >> 15 (since acc<<15 has zero low-15 bits, the
+  // shift cleanly separates), but emits cleaner code: the product shift
+  // folds into ARM's barrel-shifted ADD operand (`add acc, acc, rtmp,
+  // asr #15`), saving an explicit upshift+downshift per lane.
+  int32_t acc0_new = acc0 + (((int32_t)a0 * b0) >> Q15_SHIFT);
+  int32_t acc1_new = acc1 + (((int32_t)a1 * b1) >> Q15_SHIFT);
+  *(int32_t*)(acc) = (acc1_new << 16) | (acc0_new & 0xFFFF);
 }
 
 template<int LENGTH>
