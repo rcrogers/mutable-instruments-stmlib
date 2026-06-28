@@ -119,10 +119,13 @@ struct FourCC {
   static const uint32_t value = (((((d << 8) | c) << 8) | b) << 8) | a;
 };
 
-// Returns the positive remainder
+// Returns the positive remainder. Assumes divisor > 0. One hardware divide
+// (a conditional add folds a negative remainder into [0, divisor), instead of
+// a second modulo).
 template<typename Dividend, typename Divisor>
 inline Divisor modulo(Dividend dividend, Divisor divisor) {
-  return (divisor + (dividend % divisor)) % divisor;
+  Dividend remainder = dividend % divisor;
+  return remainder < 0 ? remainder + divisor : remainder;
 }
 
 // Saturating add for any integer types
