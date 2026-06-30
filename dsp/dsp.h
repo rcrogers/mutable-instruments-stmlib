@@ -131,6 +131,17 @@ inline float SoftClip(float x) {
       return x;
     }
   }
+  inline uint32_t ClipUShifted(int32_t x, uint8_t bits, uint8_t shift) {
+    int32_t shifted = x >> shift;
+    int32_t hi = (1 << bits) - 1;
+    if (shifted < 0) {
+      return 0;
+    } else if (shifted > hi) {
+      return hi;
+    } else {
+      return shifted;
+    }
+  }
 #else
   inline int32_t ClipS(int32_t x, uint8_t bits) {
     int32_t result;
@@ -142,6 +153,16 @@ inline float SoftClip(float x) {
   inline uint32_t ClipU16(int32_t x) {
     uint32_t result;
     __asm ("usat %0, %1, %2" : "=r" (result) :  "I" (16), "r" (x) );
+    return result;
+  }
+
+  // Saturate (x >> shift) into an unsigned `bits`-bit range. USAT folds the
+  // arithmetic right shift into the same instruction, so compose+clip+shift
+  // collapses to one op when bits/shift are compile-time constants.
+  inline uint32_t ClipUShifted(int32_t x, uint8_t bits, uint8_t shift) {
+    uint32_t result;
+    __asm ("usat %0, %1, %2, asr %3"
+           : "=r" (result) : "I" (bits), "r" (x), "I" (shift));
     return result;
   }
 #endif
