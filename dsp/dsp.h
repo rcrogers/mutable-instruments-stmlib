@@ -122,25 +122,19 @@ inline float SoftClip(float x) {
       return x;
     }
   }
-  inline uint16_t ClipU16(int32_t x) {
+  inline uint32_t ClipU(int32_t x, uint8_t bits) {
+    int32_t max = (1 << bits) - 1;
     if (x < 0) {
       return 0;
-    } else if (x > 65535) {
-      return 65535;
+    } else if (x > max) {
+      return max;
     } else {
       return x;
     }
   }
-  inline uint32_t ClipUShifted(int32_t x, uint8_t bits, uint8_t shift) {
-    int32_t shifted = x >> shift;
-    int32_t hi = (1 << bits) - 1;
-    if (shifted < 0) {
-      return 0;
-    } else if (shifted > hi) {
-      return hi;
-    } else {
-      return shifted;
-    }
+  inline uint16_t ClipU16(int32_t x) { return ClipU(x, 16); }
+  inline uint32_t ClipUShifted(int32_t x, uint8_t bits, uint8_t right_shift) {
+    return ClipU(x >> right_shift, bits);
   }
 #else
   inline int32_t ClipS(int32_t x, uint8_t bits) {
@@ -150,19 +144,20 @@ inline float SoftClip(float x) {
   }
   inline int32_t Clip16(int32_t x) { return ClipS(x, 16); }
 
-  inline uint32_t ClipU16(int32_t x) {
+  inline uint32_t ClipU(int32_t x, uint8_t bits) {
     uint32_t result;
-    __asm ("usat %0, %1, %2" : "=r" (result) :  "I" (16), "r" (x) );
+    __asm ("usat %0, %1, %2" : "=r" (result) :  "I" (bits), "r" (x) );
     return result;
   }
+  inline uint32_t ClipU16(int32_t x) { return ClipU(x, 16); }
 
-  // Saturate (x >> shift) into an unsigned `bits`-bit range. USAT folds the
-  // arithmetic right shift into the same instruction, so compose+clip+shift
-  // collapses to one op when bits/shift are compile-time constants.
-  inline uint32_t ClipUShifted(int32_t x, uint8_t bits, uint8_t shift) {
+  // Arithmetic-shift-right then unsigned-saturate, folded into a single USAT
+  // (the shift is an operand of the instruction). bits/right_shift must be
+  // compile-time constants.
+  inline uint32_t ClipUShifted(int32_t x, uint8_t bits, uint8_t right_shift) {
     uint32_t result;
     __asm ("usat %0, %1, %2, asr %3"
-           : "=r" (result) : "I" (bits), "r" (x), "I" (shift));
+           : "=r" (result) : "I" (bits), "r" (x), "I" (right_shift) );
     return result;
   }
 #endif
