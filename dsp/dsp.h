@@ -113,6 +113,13 @@ inline float SoftClip(float x) {
 }
 
 #ifdef TEST
+  inline int32_t ClipS(int32_t x, uint8_t bits) {
+    int32_t max = (1 << (bits - 1)) - 1;
+    int32_t min = -(1 << (bits - 1));
+    if (x < min) return min;
+    if (x > max) return max;
+    return x;
+  }
   inline int32_t Clip16(int32_t x) {
     if (x < -32768) {
       return -32768;
@@ -170,7 +177,18 @@ inline int32_t SatSub(int32_t a, int32_t b, uint8_t bits) {
   return SatAdd(a, -b, bits);
 }
 
-inline int32_t MulS32(int32_t a, int32_t b) {
+#ifdef TEST
+  inline int32_t MulS32(int32_t a, int32_t b) {
+    return static_cast<int32_t>(
+        (static_cast<int64_t>(a) * static_cast<int64_t>(b)) >> 32);
+  }
+
+  inline uint32_t MulU32(uint32_t a, uint32_t b) {
+    return static_cast<uint32_t>(
+        (static_cast<uint64_t>(a) * static_cast<uint64_t>(b)) >> 32);
+  }
+#else
+  inline int32_t MulS32(int32_t a, int32_t b) {
     int32_t lo, hi;
     __asm__ volatile (
         "smull  %[lo], %[hi], %[A], %[B]\n"
@@ -181,9 +199,9 @@ inline int32_t MulS32(int32_t a, int32_t b) {
         /* no clobbers */
     );
     return hi;
-}
+  }
 
-inline uint32_t MulU32(uint32_t a, uint32_t b) {
+  inline uint32_t MulU32(uint32_t a, uint32_t b) {
     uint32_t lo, hi;
     __asm__ volatile (
         "umull  %[lo], %[hi], %[A], %[B]\n"
@@ -194,7 +212,8 @@ inline uint32_t MulU32(uint32_t a, uint32_t b) {
         /* no clobbers */
     );
     return hi;
-}
+  }
+#endif
 
 #define SHIFT_BY_SIGNED(x, shift) ((shift >= 0) ? (x << shift) : (x >> -shift))
 
@@ -202,10 +221,13 @@ inline uint32_t FractionU32(uint32_t num, uint32_t denom_gte_num) {
   if (denom_gte_num == 0) return UINT32_MAX;
   if (num == 0) return 0;
 
-  uint8_t num_upshift = __builtin_clzl(num);
+  // __builtin_clz, NOT clzl: `long` is 32 bits on the ARM target but 64 on an
+  // LP64 host, where clzl reads 32 too many and the shift below leaves nothing.
+  // Identical on target, where int and long are both 32 bits.
+  uint8_t num_upshift = __builtin_clz(num);
   uint32_t num_32 = num << num_upshift;
 
-  int8_t denom_shift = __builtin_clzl(denom_gte_num) - 16;
+  int8_t denom_shift = __builtin_clz(denom_gte_num) - 16;
   uint32_t denom_16 = SHIFT_BY_SIGNED(denom_gte_num, denom_shift);
 
   uint32_t result_16 = num_32 / denom_16;
