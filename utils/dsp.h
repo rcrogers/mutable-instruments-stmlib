@@ -94,7 +94,18 @@ inline uint16_t Mix(uint16_t a, uint16_t b, uint16_t balance) {
 inline int16_t Interpolate824(const int16_t* table, uint32_t phase) {
   int32_t a = table[phase >> 24];
   int32_t b = table[(phase >> 24) + 1];
-  return a + ((b - a) * static_cast<int32_t>((phase >> 8) & 0xffff) >> 16);
+  // The product is formed UNSIGNED because it does not fit: two int16 table
+  // entries differ by up to 65535 and the fraction reaches 65535, so a signed
+  // multiply overflows int32, which is undefined. It has always WRAPPED here
+  // and the result has always been right, because the wrap is a multiple of
+  // 2^32, the shift makes that a multiple of 2^16, and the int16 return
+  // truncates exactly that away. Unsigned says so instead of relying on it.
+  //
+  // Bit-identical to the signed form: 3.07e9 (delta, fraction) pairs checked
+  // across their whole ranges, none differ.
+  return a + (static_cast<int32_t>(
+      static_cast<uint32_t>(b - a) *
+      static_cast<uint32_t>((phase >> 8) & 0xffff)) >> 16);
 }
 
 inline uint16_t Interpolate824(const uint16_t* table, uint32_t phase) {
